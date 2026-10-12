@@ -1,0 +1,99 @@
+[
+ {
+  "id": "gdp_pc",
+  "code": "NY.GDP.PCAP.CD",
+  "label": "GDP per person",
+  "unit": "US$",
+  "pairs": "development",
+  "source": "national accounts data",
+  "years": [
+   1960,
+   2025
+  ]
+ },
+ {
+  "id": "co2_pc",
+  "code": "EN.GHG.CO2.PC.CE.AR5",
+  "label": "CO₂ emissions per person",
+  "unit": "tonnes",
+  "pairs": "climate",
+  "source": "EDGAR, EU Joint Research Centre",
+  "years": [
+   1970,
+   2024
+  ]
+ },
+ {
+  "id": "life_exp",
+  "code": "SP.DYN.LE00.IN",
+  "label": "Life expectancy",
+  "unit": "years",
+  "pairs": "health",
+  "source": "UN World Population Prospects",
+  "years": [
+   1960,
+   2024
+  ]
+ },
+ {
+  "id": "women_parl",
+  "code": "SG.GEN.PARL.ZS",
+  "label": "Women in parliament",
+  "unit": "% of seats",
+  "pairs": "gender",
+  "source": "Inter-Parliamentary Union",
+  "years": [
+   1997,
+   2025
+  ]
+ },
+ {
+  "id": "internet",
+  "code": "IT.NET.USER.ZS",
+  "label": "Internet users",
+  "unit": "% of people",
+  "pairs": "technology",
+  "source": "International Telecommunication Union",
+  "years": [
+   1990,
+   2025
+  ]
+ },
+ {
+  "id": "ext_debt",
+  "code": "DT.DOD.DECT.GN.ZS",
+  "label": "Foreign debt",
+  "unit": "% of national income",
+  "pairs": "debt",
+  "source": "International Debt Statistics",
+  "note": "Only covers low- and middle-income countries.",
+  "years": [
+   1970,
+   2024
+  ]
+ },
+ {
+  "id": "trade_gdp",
+  "code": "NE.TRD.GNFS.ZS",
+  "label": "Trade",
+  "unit": "% of GDP",
+  "pairs": "trade",
+  "source": "national accounts data",
+  "years": [
+   1960,
+   2025
+  ]
+ },
+ {
+  "id": "hunger",
+  "code": "SN.ITK.DEFC.ZS",
+  "label": "Undernourishment",
+  "unit": "% of people",
+  "pairs": "food_water",
+  "source": "UN Food and Agriculture Organization",
+  "years": [
+   2001,
+   2024
+  ]
+ }
+]

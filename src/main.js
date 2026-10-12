@@ -2,6 +2,7 @@ import { AttributionControl, Map, NavigationControl, setWorkerUrl } from 'maplib
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { centres, loadJson, makeNamer } from './data.js';
+import { makeLayers, pairOf } from './layers.js';
 import { renderPanel } from './panel.js';
 import './style.css';
 
@@ -13,11 +14,13 @@ const css = getComputedStyle(document.documentElement);
 const color = (name) => css.getPropertyValue(name).trim();
 const RAMP = [0, 1, 2, 3, 4].map((i) => color(`--ramp-${i}`));
 
-const [countries, speeches, topics] = await Promise.all([
+const [countries, speeches, topics, indicators] = await Promise.all([
   loadJson('countries.geojson'),
   loadJson('speeches.json'),
   loadJson('topics.json'),
+  loadJson('indicators/index.json'),
 ]);
+const layers = makeLayers({ topics, speeches, indicators });
 const nameOf = makeNamer(countries);
 const centreOf = centres(countries);
 const continentOf = {
@@ -27,37 +30,16 @@ const continentOf = {
 };
 const [FIRST_YEAR, LAST_YEAR] = speeches.years;
 
-// Each topic gets its own colour scale, fixed across all years so that sliding
-// through time shows real change. The top of the scale is the 95th percentile
-// of every country-year, so one unusual speech doesn't wash everything else out.
-const scaleTop = {};
-const worldAverage = {};
-topics.forEach((t, i) => {
-  const values = [];
-  const sums = {};
-  for (const byYear of Object.values(speeches.shares)) {
-    for (const [year, shares] of Object.entries(byYear)) {
-      values.push(shares[i]);
-      sums[year] ??= [0, 0];
-      sums[year][0] += shares[i];
-      sums[year][1] += 1;
-    }
-  }
-  values.sort((a, b) => a - b);
-  scaleTop[t.id] = Math.max(10, values[Math.floor(values.length * 0.95)]);
-  worldAverage[t.id] = Object.fromEntries(Object.entries(sums).map(([y, [sum, n]]) => [y, sum / n / 10]));
-});
-
 // What's on screen. Kept in the address bar so any view can be shared as a link.
 // Climate is the opening view: it changes the most visibly over time.
-const state = { topic: 'climate', year: LAST_YEAR, country: null };
+const state = { layer: 'climate', year: LAST_YEAR, country: null };
 const params = new URLSearchParams(location.hash.slice(1));
-if (topics.some((t) => t.id === params.get('topic'))) state.topic = params.get('topic');
+if (layers[params.get('layer')]) state.layer = params.get('layer');
 if (+params.get('year') >= FIRST_YEAR && +params.get('year') <= LAST_YEAR) state.year = +params.get('year');
 if (speeches.shares[params.get('country')] || centreOf[params.get('country')]) state.country = params.get('country');
 
 function saveToUrl() {
-  const p = new URLSearchParams({ topic: state.topic, year: state.year });
+  const p = new URLSearchParams({ layer: state.layer, year: state.year });
   if (state.country) p.set('country', state.country);
   history.replaceState(null, '', `#${p}`);
 }
@@ -77,7 +59,8 @@ const style = {
   },
   layers: [
     { id: 'ocean', type: 'background', paint: { 'background-color': color('--ocean') } },
-    { id: 'country-fill', type: 'fill', source: 'countries', paint: { 'fill-color': fillColor() } },
+    // Painted properly once the map has loaded and the chosen layer's data is in.
+    { id: 'country-fill', type: 'fill', source: 'countries', paint: { 'fill-color': color('--land') } },
     {
       id: 'country-border',
       type: 'line',
@@ -102,14 +85,12 @@ const style = {
   ],
 };
 
-// Countries with no speech that year are grey; the rest shade along the ramp.
-function fillColor() {
-  const top = scaleTop[state.topic];
-  const share = ['coalesce', ['feature-state', 'share'], -1];
+// Countries with no data that year are grey; the rest shade along the ramp.
+function fillColor(stops = layers[state.layer].stops) {
   return [
     'case',
-    ['<', share, 0], color('--land'),
-    ['interpolate', ['linear'], share, ...RAMP.flatMap((c, i) => [(top * i) / (RAMP.length - 1), c])],
+    ['!', ['boolean', ['feature-state', 'has'], false]], color('--land'),
+    ['interpolate', ['linear'], ['coalesce', ['feature-state', 'value'], 0], ...RAMP.flatMap((c, i) => [stops[i], c])],
   ];
 }
 
@@ -123,7 +104,7 @@ const map = new Map({
 // Controls sit bottom-left so the country panel (right side) never covers them.
 map.addControl(new NavigationControl({ visualizePitch: true }), 'bottom-left');
 map.addControl(
-  new AttributionControl({ compact: true, customAttribution: 'Speeches: UN General Debate Corpus · Borders: Natural Earth' }),
+  new AttributionControl({ compact: true, customAttribution: 'Speeches: UN General Debate Corpus · Data: World Bank (CC BY 4.0) · Borders: Natural Earth' }),
   'bottom-left',
 );
 
@@ -134,37 +115,63 @@ function setState(id, featureState) {
 // ---- Colouring the map --------------------------------------------------
 
 function paintYear() {
-  const index = topics.findIndex((t) => t.id === state.topic);
-  for (const [iso, byYear] of Object.entries(speeches.shares)) {
-    const shares = byYear[state.year];
-    setState(iso, { share: shares ? shares[index] : -1 });
+  const layer = layers[state.layer];
+  for (const iso of Object.keys(centreOf)) {
+    const found = layer.value(iso, state.year);
+    setState(iso, found ? { has: true, value: found.value } : { has: false });
   }
 }
 
-function paintTopic() {
+const legendScale = document.getElementById('legend-scale');
+const legendText = document.getElementById('legend-text');
+
+function paintLayer() {
+  const layer = layers[state.layer];
   map.setPaintProperty('country-fill', 'fill-color', fillColor());
-  document.getElementById('legend-max').textContent = `${Math.round(scaleTop[state.topic] / 10)}%+`;
+  legendScale.replaceChildren(
+    ...layer.stops.map((v, i) => {
+      const span = document.createElement('span');
+      span.textContent = (layer.legendFormat ?? layer.format)(v) + (i === layer.stops.length - 1 ? '+' : '');
+      return span;
+    }),
+  );
+  legendText.textContent =
+    layer.kind === 'topic'
+      ? "Share of each country's speech spent on this topic."
+      : `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank.`;
   paintYear();
 }
 
-map.on('load', () => {
-  paintTopic();
+const mapReady = new Promise((resolve) => map.on('load', resolve));
+
+mapReady.then(async () => {
+  await layers[state.layer].load?.();
+  paintLayer();
   if (state.country) selectCountry(state.country, { fly: true });
 });
 
-// ---- Topic picker -------------------------------------------------------
+// ---- Layer picker -------------------------------------------------------
 
-const topicSelect = document.getElementById('topic');
-topicSelect.append(...topics.map((t) => new Option(t.label, t.id)));
-topicSelect.value = state.topic;
-topicSelect.addEventListener('change', () => setTopic(topicSelect.value));
+const layerSelect = document.getElementById('layer');
+const group = (label, items) => {
+  const optgroup = document.createElement('optgroup');
+  optgroup.label = label;
+  optgroup.append(...items.map((l) => new Option(l.label, l.id)));
+  return optgroup;
+};
+layerSelect.append(group('What countries say', topics), group('What the numbers show', indicators));
+layerSelect.value = state.layer;
+layerSelect.addEventListener('change', () => setLayer(layerSelect.value));
 
-function setTopic(id) {
-  state.topic = id;
-  topicSelect.value = id;
-  paintTopic();
-  refreshPanel();
+async function setLayer(id) {
+  state.layer = id;
+  layerSelect.value = id;
   saveToUrl();
+  await layers[id].load?.();
+  await mapReady;
+  if (state.layer !== id) return; // the reader picked something else while this loaded
+  paintLayer();
+  refreshPanel();
 }
 
 // ---- Year slider and play button ----------------------------------------
@@ -183,7 +190,7 @@ function setYear(year) {
   state.year = year;
   slider.value = year;
   yearLabel.textContent = year;
-  paintYear();
+  if (layers[state.layer].ready) paintYear();
   refreshPanel();
   saveToUrl();
 }
@@ -217,11 +224,14 @@ let hoveredId = null;
 
 function tooltipText(iso) {
   const name = nameOf(iso, state.year);
-  const shares = speeches.shares[iso]?.[state.year];
-  if (!speeches.shares[iso]) return `${name} · no speeches`;
-  if (!shares) return `${name} · no speech in ${state.year}`;
-  const index = topics.findIndex((t) => t.id === state.topic);
-  return `${name} · ${topics[index].label}: ${(shares[index] / 10).toFixed(1)}%`;
+  const layer = layers[state.layer];
+  const found = layer.value(iso, state.year);
+  if (found) {
+    const when = found.year === state.year ? '' : ` (${found.year})`;
+    return `${name} · ${layer.label}: ${layer.format(found.value)}${when}`;
+  }
+  if (layer.kind === 'topic') return `${name} · ${speeches.shares[iso] ? `no speech in ${state.year}` : 'no speeches'}`;
+  return `${name} · no figure for ${state.year}`;
 }
 
 map.on('mousemove', 'country-fill', (e) => {
@@ -282,17 +292,18 @@ function selectCountry(iso, { fly }) {
 
 function refreshPanel() {
   if (!state.country) return;
+  const focus = pairOf(layers, layers[state.layer]);
+  if (focus.indicator && !focus.indicator.ready) focus.indicator.load().then(refreshPanel);
   renderPanel(panelBody, {
     iso: state.country,
     year: state.year,
-    topic: state.topic,
     topics,
     speeches,
     detail: details[state.country],
     continent: continentOf[state.country],
     nameOf,
-    worldSeries: worldAverage[state.topic],
-    onTopic: setTopic,
+    focus,
+    onLayer: setLayer,
     onYear: setYear,
     onCountry: (iso) => selectCountry(iso, { fly: true }),
   });
