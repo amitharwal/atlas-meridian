@@ -126,7 +126,52 @@ export function makeLayers({ topics, speeches, indicators }) {
   }
 
   layers.speaker = speakerLayer();
+  layers.mentions = mentionsLayer(speeches);
   return layers;
+}
+
+// Who talks about whom: each country shaded by how many times its speech
+// named one chosen country (the "target"). Counts come from
+// pipeline/build_mentions.py, one small file per target.
+function mentionsLayer(speeches) {
+  const cache = {};
+  const layer = {
+    kind: 'mentions',
+    id: 'mentions',
+    label: 'Who talks about whom',
+    target: null,
+    stops: [0, 1, 3, 6, 10],
+    legendLabels: ['0', '10+'],
+    format: (v) => `${v} mention${v === 1 ? '' : 's'}`,
+    worldLabel: 'Countries mentioning it',
+    ready: false,
+    data: null,
+    world: {},
+    // Switch to another target country; resolves once its counts are in.
+    async setTarget(iso) {
+      layer.target = iso;
+      layer.ready = false;
+      cache[iso] ??= loadJson(`mentions/${iso}.json`).catch(() => ({}));
+      const data = await cache[iso];
+      if (layer.target !== iso) return; // switched again while this loaded
+      layer.data = data;
+      layer.world = Object.fromEntries(Object.entries(data).map(([y, bySpeaker]) => [y, Object.keys(bySpeaker).length]));
+      layer.ready = true;
+    },
+    load() {
+      return layer.setTarget(layer.target);
+    },
+    // Every country that spoke that year gets a value (0 if it didn't mention the target).
+    value(iso, year) {
+      if (iso === layer.target || !speeches.shares[iso]?.[year]) return null;
+      return { value: layer.data?.[year]?.[iso] ?? 0, year };
+    },
+    // How many countries mentioned the target in a year.
+    mentioners(year) {
+      return Object.keys(layer.data?.[year] ?? {}).length;
+    },
+  };
+  return layer;
 }
 
 // How senior the person who gave the speech was. Ranks come from
@@ -187,7 +232,7 @@ function speakerLayer() {
 // last topic the reader chose (`fallbackTopic`).
 export function pairOf(layers, layer, fallbackTopic = 'climate') {
   if (layer.kind === 'indicator') return { topic: layers[layer.pairs], indicator: layer };
-  if (layer.kind === 'speaker') return pairOf(layers, layers[fallbackTopic]);
+  if (layer.kind === 'speaker' || layer.kind === 'mentions') return pairOf(layers, layers[fallbackTopic]);
   const indicator = Object.values(layers).find((l) => l.kind === 'indicator' && l.pairs === layer.id);
   return { topic: layer, indicator };
 }

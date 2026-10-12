@@ -25,6 +25,9 @@
   --on-strong: #ffffff;
   --bar: #2f6194;
   --halo: #ffffff;
+  /* "Who talks about whom": the country being talked about. A different hue
+     from the blue scale so it can't be mistaken for a high value. */
+  --target: #d9822b;
   color-scheme: light;
 }
 
@@ -195,6 +198,17 @@ button {
   align-items: center;
   gap: 5px;
   margin-left: 6px;
+}
+
+.target-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--target);
+}
+
+#legend-target[hidden] {
+  display: none;
 }
 
 .hatch {
@@ -689,7 +703,9 @@ button {
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: 8px 16px;
   margin-top: 12px;
 }
 
