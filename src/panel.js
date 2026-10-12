@@ -44,6 +44,30 @@ function closeButton(label, onclick) {
 // ---- Top 10 ---------------------------------------------------------------
 
 export function renderRankings(container, { layer, year, rows, nameOf, onCountry }) {
+  // For the speaker layer a top-10 makes no sense; count who spoke instead.
+  if (layer.kind === 'speaker') {
+    const counts = [0, 0, 0, 0];
+    for (const row of rows) counts[row.value] += 1;
+    container.replaceChildren(
+      h('p', { class: 'popover-title' }, `Who gave the speech · ${year}`),
+      rows.length
+        ? h(
+            'ol',
+            { class: 'rank-list' },
+            [3, 2, 1, 0].map((rank) =>
+              h(
+                'li',
+                { class: 'rank-row', style: 'cursor:default' },
+                h('span', { class: 'rank-n' }, ''),
+                h('span', { class: 'rank-name' }, layer.format(rank)),
+                h('span', { class: 'rank-value' }, String(counts[rank])),
+              ),
+            ),
+          )
+        : h('p', { class: 'popover-title' }, `Speakers' titles are recorded from 1990.`),
+    );
+    return;
+  }
   const top = rows.slice(0, 10);
   container.replaceChildren(
     h('p', { class: 'popover-title' }, `Highest · ${year}`),
@@ -88,6 +112,7 @@ export function renderCard(container, ctx) {
       closeButton('Close', ctx.onClose),
     ),
     name !== todayName ? h('p', { class: 'card-note' }, `Seat now held by ${todayName}`) : null,
+    ctx.speaker ? h('p', { class: 'card-speaker' }, `Speech by ${ctx.speaker}`) : null,
   ];
 
   // The two headline numbers: what they said, and what the numbers show.

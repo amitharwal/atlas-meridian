@@ -17,6 +17,14 @@ const speeches = read('speeches.json');
 const topics = read('topics.json');
 const indicators = read('indicators/index.json');
 const topology = read('countries.topo.json');
+const speakers = read('speakers.json');
+// "Prime Minister Frank Bainimarama", or just the name when no title was recorded.
+function speakerOf(iso, year) {
+  const entry = speakers[iso]?.[year];
+  if (!entry?.[0]) return null;
+  const [name, title] = entry;
+  return title ? `${title} ${name.replace(/^(Mr|Mrs|Ms|Dr)\.? /, '')}` : name;
+}
 const shapes = topology.objects.countries.geometries.map((g) => g.properties);
 const nameOf = makeNamer({ features: shapes.map((properties) => ({ properties })) });
 const continentOf = {
@@ -192,8 +200,16 @@ function profile(iso) {
 
   // Quotes: the latest speech, plus the very first one for contrast.
   const labelOf = Object.fromEntries(topics.map((t) => [t.id, t.label]));
-  const quote = (q, year) =>
-    `<figure class="quote"><blockquote>“${escape(q.text)}”</blockquote><figcaption>${year} · ${escape(labelOf[q.topic])}</figcaption></figure>`;
+  const quote = (q, year) => {
+    const who = speakerOf(iso, year);
+    return `<figure class="quote"><blockquote>“${escape(q.text)}”</blockquote><figcaption>${year} · ${escape(labelOf[q.topic])}${
+      who ? ` · ${escape(who)}` : ''
+    }</figcaption></figure>`;
+  };
+
+  // How often a leader delivered the speech in person, since titles were recorded.
+  const ranked = years.filter((y) => y >= 1990 && speakers[iso]?.[y]?.[2] != null);
+  const byLeader = ranked.filter((y) => speakers[iso][y][2] === 3).length;
   const quotes = [
     ...(detail.years[last]?.quotes ?? []).slice(0, 2).map((q) => quote(q, last)),
     ...(first !== last ? (detail.years[first]?.quotes ?? []).slice(0, 1).map((q) => quote(q, first)) : []),
@@ -223,6 +239,7 @@ ${chart(series, ind.world, `${name}'s ${ind.label} over time, against the world 
     former.length ? `. Includes speeches as ${escape(former.map(withArticle).join(' and '))}` : ''
   }.</p>
 <p class="lede">${intro}</p>
+${ranked.length >= 5 ? `<p class="sub">Since 1990, its head of state or government gave the speech in ${byLeader} of ${ranked.length} years.</p>` : ''}
 <p><a class="button" href="../../#layer=${lead.id}&year=${last}&country=${iso}">Open on the map</a></p>
 
 <section><h2>Main topics, ${first}–${last}</h2>
