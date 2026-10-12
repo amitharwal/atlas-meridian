@@ -35,22 +35,34 @@ export function makeNamer(countries) {
   };
 }
 
+// Places whose largest piece of land is smaller than this (in square degrees,
+// roughly 150 km across) are too small to see or click on a globe, so they
+// also get a dot marker. That's most island states, plus places like Malta.
+const SMALL_AREA = 2;
+
 // A rough centre for each country, used to fly the globe there: the middle of
 // its largest piece of land (so France centres on Europe, not French Guiana).
-export function centres(countries) {
-  const out = {};
+// Also returns dot markers for the small places.
+export function shapeInfo(countries) {
+  const centreOf = {};
+  const dots = [];
   for (const f of countries.features) {
     const { type, coordinates } = f.geometry;
     const polygons = type === 'Polygon' ? [coordinates] : coordinates;
     let best = null;
     for (const polygon of polygons) {
-      const xs = polygon[0].map((p) => p[0]);
-      const ys = polygon[0].map((p) => p[1]);
-      const box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+      let box = [Infinity, Infinity, -Infinity, -Infinity];
+      for (const [x, y] of polygon[0]) {
+        box = [Math.min(box[0], x), Math.min(box[1], y), Math.max(box[2], x), Math.max(box[3], y)];
+      }
       const area = (box[2] - box[0]) * (box[3] - box[1]);
       if (!best || area > best.area) best = { area, box };
     }
-    out[f.properties.iso3] = [(best.box[0] + best.box[2]) / 2, (best.box[1] + best.box[3]) / 2];
+    const iso = f.properties.iso3;
+    centreOf[iso] = [(best.box[0] + best.box[2]) / 2, (best.box[1] + best.box[3]) / 2];
+    if (best.area < SMALL_AREA) {
+      dots.push({ type: 'Feature', properties: { iso3: iso }, geometry: { type: 'Point', coordinates: centreOf[iso] } });
+    }
   }
-  return out;
+  return { centreOf, dots: { type: 'FeatureCollection', features: dots } };
 }

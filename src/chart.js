@@ -1,63 +1,72 @@
-// A small line chart of one measure over the years: a country against the world.
+// Small, axis-free line charts drawn as SVG: the mini charts in the country
+// panel and the world trend inside the timeline.
 
-const W = 292;
-const H = 110;
-const PAD = { top: 10, right: 6, bottom: 18, left: 38 };
 const SVG = 'http://www.w3.org/2000/svg';
+const W = 300;
+const H = 80;
 
-function el(name, attrs = {}, text) {
+function el(name, attrs = {}) {
   const node = document.createElementNS(SVG, name);
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
-  if (text !== undefined) node.textContent = text;
   return node;
 }
 
-// `country` and `world` map year -> value; years without data are missing.
-export function lineChart({ country, world, years, year, format, minTop = 0, onPickYear }) {
-  const [first, last] = years;
-  const top = Math.max(minTop, ...Object.values(country), ...Object.values(world)) * 1.1;
-  const x = (y) => PAD.left + ((y - first) / (last - first)) * (W - PAD.left - PAD.right);
-  const y = (v) => H - PAD.bottom - (v / top) * (H - PAD.top - PAD.bottom);
-
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart', role: 'img' });
-
-  for (const v of [0, top / 2]) {
-    svg.append(el('line', { x1: PAD.left, x2: W - PAD.right, y1: y(v), y2: y(v), class: 'chart-grid' }));
-    svg.append(el('text', { x: PAD.left - 5, y: y(v) + 3, class: 'chart-axis', 'text-anchor': 'end' }, v === 0 ? '0' : format(v)));
-  }
-  for (const [label, anchor] of [[first, 'start'], [1985, 'middle'], [last, 'end']]) {
-    svg.append(el('text', { x: x(label), y: H - 4, class: 'chart-axis', 'text-anchor': anchor }, label));
-  }
-
-  // Break the line wherever a year has no data, rather than drawing across the gap.
-  const path = (series) => {
-    let d = '';
-    let drawing = false;
-    for (let yr = first; yr <= last; yr++) {
-      if (series[yr] === undefined) {
-        drawing = false;
-        continue;
-      }
-      d += `${drawing ? 'L' : 'M'}${x(yr).toFixed(1)},${y(series[yr]).toFixed(1)}`;
-      drawing = true;
+// An SVG path through `series` (year -> value), broken wherever a year is missing.
+function linePath(series, [first, last], top, w, h) {
+  let d = '';
+  let drawing = false;
+  for (let year = first; year <= last; year++) {
+    const v = series[year];
+    if (v === undefined) {
+      drawing = false;
+      continue;
     }
-    return d;
-  };
-  svg.append(el('path', { d: path(world), class: 'chart-world' }));
-  svg.append(el('path', { d: path(country), class: 'chart-country' }));
-
-  svg.append(el('line', { x1: x(year), x2: x(year), y1: PAD.top, y2: H - PAD.bottom, class: 'chart-now' }));
-  if (country[year] !== undefined) {
-    svg.append(el('circle', { cx: x(year), cy: y(country[year]), r: 3.5, class: 'chart-dot' }));
+    const x = ((year - first) / (last - first)) * w;
+    const y = h - (Math.min(v, top) / top) * h;
+    d += `${drawing ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
+    drawing = true;
   }
+  return d;
+}
 
-  // Clicking the chart jumps the whole map to that year.
+// A country's line against the world's, with the chosen year marked.
+// Clicking the chart jumps to that year.
+export function miniChart({ country, world, years, year, label, onPickYear }) {
+  const top = Math.max(...Object.values(country), ...Object.values(world), 1e-9) * 1.08;
+  const svg = el('svg', {
+    viewBox: `0 0 ${W} ${H}`,
+    preserveAspectRatio: 'none',
+    class: 'mini-chart',
+    role: 'img',
+    'aria-label': label,
+  });
+  const x = ((year - years[0]) / (years[1] - years[0])) * W;
+  svg.append(
+    el('line', { x1: x, x2: x, y1: 0, y2: H, class: 'mini-now' }),
+    el('path', { d: linePath(world, years, top, W, H), class: 'mini-world' }),
+    el('path', { d: linePath(country, years, top, W, H), class: 'mini-country' }),
+  );
   svg.addEventListener('click', (e) => {
     const box = svg.getBoundingClientRect();
-    const px = ((e.clientX - box.left) / box.width) * W;
-    const picked = Math.round(first + ((px - PAD.left) / (W - PAD.left - PAD.right)) * (last - first));
-    onPickYear(Math.min(last, Math.max(first, picked)));
+    const picked = Math.round(years[0] + ((e.clientX - box.left) / box.width) * (years[1] - years[0]));
+    onPickYear(Math.min(years[1], Math.max(years[0], picked)));
   });
-
   return svg;
+}
+
+// Fill the timeline's background chart with the world trend for the chosen layer.
+export function drawSparkline(svg, world, years) {
+  const top = Math.max(...Object.values(world), 1e-9) * 1.05;
+  const line = linePath(world, years, top, 1000, 40);
+  // The filled area: each unbroken stretch of line, closed down to the baseline.
+  const area = line
+    .split('M')
+    .filter(Boolean)
+    .map((segment) => {
+      const startX = segment.split(',')[0];
+      const endX = segment.split('L').at(-1).split(',')[0];
+      return `M${startX},40L${segment}L${endX},40Z`;
+    })
+    .join('');
+  svg.replaceChildren(el('path', { d: area, class: 'spark-area' }), el('path', { d: line, class: 'spark-line' }));
 }

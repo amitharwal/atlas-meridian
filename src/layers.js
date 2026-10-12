@@ -16,6 +16,26 @@ function formatter(unit) {
   return (v) => `${v < 10 ? v.toFixed(1) : Math.round(v)}%`;
 }
 
+// How each topic reads inside a sentence ("…spent 14% of their speech on climate").
+const SHORT = {
+  peace: 'peace and conflict',
+  nuclear: 'nuclear weapons',
+  terrorism: 'terrorism',
+  human_rights: 'human rights',
+  democracy: 'democracy',
+  climate: 'climate',
+  development: 'development',
+  trade: 'trade',
+  debt: 'debt',
+  decolonisation: 'decolonisation',
+  un_reform: 'UN reform',
+  health: 'health',
+  migration: 'migration',
+  food_water: 'food and water',
+  gender: 'gender equality',
+  technology: 'technology',
+};
+
 const percentile = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
 
 // Colour stops must strictly increase, even where several percentiles are equal.
@@ -45,6 +65,7 @@ export function makeLayers({ topics, speeches, indicators }) {
       kind: 'topic',
       id: topic.id,
       label: topic.label,
+      short: SHORT[topic.id] ?? topic.label.toLowerCase(),
       stops: [0, 0.25, 0.5, 0.75, 1].map((f) => f * top),
       format: (v) => `${v.toFixed(1)}%`,
       legendFormat: (v) => `${Math.round(v)}%`,
@@ -112,4 +133,23 @@ export function pairOf(layers, layer) {
   if (layer.kind === 'indicator') return { topic: layers[layer.pairs], indicator: layer };
   const indicator = Object.values(layers).find((l) => l.kind === 'indicator' && l.pairs === layer.id);
   return { topic: layer, indicator };
+}
+
+// Every speaker with a value for this year, highest first.
+export function ranking(layer, year, codes) {
+  const rows = [];
+  for (const iso of codes) {
+    const found = layer.value(iso, year);
+    if (found) rows.push({ iso, ...found });
+  }
+  return rows.sort((a, b) => b.value - a.value);
+}
+
+// The year with the highest world figure, for "peak year" facts.
+export function peakYear(layer) {
+  let best = null;
+  for (const [year, v] of Object.entries(layer.world ?? {})) {
+    if (!best || v > best.value) best = { year: +year, value: v };
+  }
+  return best;
 }
