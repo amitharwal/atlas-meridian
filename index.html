@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Atlas Meridian — explore what the world's nations say at the United Nations." />
+    <title>Atlas Meridian</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="masthead">
+      <h1>Atlas Meridian</h1>
+      <p>What the world says at the United Nations</p>
+    </header>
+
+    <div id="map" aria-label="Interactive globe of the world's countries"></div>
+
+    <div id="tooltip" class="tooltip" hidden></div>
+
+    <aside id="panel" class="panel" hidden>
+      <button id="panel-close" class="panel-close" aria-label="Close panel">&times;</button>
+      <p id="panel-continent" class="panel-kicker"></p>
+      <h2 id="panel-name"></h2>
+      <p class="panel-placeholder">Speech topics and data for this country will appear here.</p>
+    </aside>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
