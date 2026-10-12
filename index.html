@@ -3,8 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Atlas Meridian — explore what the world's nations say at the United Nations, and what the numbers show." />
-    <title>Atlas Meridian</title>
+    <meta name="description" content="80 years of UN speeches on a map: see what every country talks about at the United Nations, and how its words compare with the numbers." />
+    <title>Atlas Meridian · What the world says at the UN</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+
+    <!-- What chat apps and social sites show when the link is shared -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://amitharwal.github.io/atlas-meridian/" />
+    <meta property="og:title" content="Atlas Meridian · What the world says at the UN" />
+    <meta property="og:description" content="80 years of UN speeches on a map: see what every country talks about at the United Nations, and how its words compare with the numbers." />
+    <meta property="og:image" content="https://amitharwal.github.io/atlas-meridian/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A world map shaded by how much each country spoke about climate change at the UN in 2021" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Start downloading the data straight away, alongside the code -->
+    <link rel="preload" href="./data/countries.topo.json" as="fetch" crossorigin />
+    <link rel="preload" href="./data/speeches.json" as="fetch" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -12,10 +28,16 @@
   <body>
     <div id="map" aria-label="Interactive map of the world's countries"></div>
 
+    <!-- Shown until the map is ready (or if the data can't be loaded) -->
+    <div id="loading" class="loading" role="status">Loading the map…</div>
+
     <!-- Top left: name, what the map shows, and its colour key -->
     <div class="hud hud-left">
       <div class="control-group">
-        <h1 class="brand">Atlas Meridian</h1>
+        <div class="brand-block">
+          <h1 class="brand">Atlas Meridian</h1>
+          <p class="tagline">What countries say at the UN, 1946–2025</p>
+        </div>
         <button id="layer-button" class="layer-button" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="picker">
           <span id="layer-label"></span>
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
@@ -39,6 +61,9 @@
     <!-- Top right: rankings and about -->
     <div class="hud hud-right">
       <button id="stories-button" class="text-control" type="button" aria-expanded="false" aria-controls="stories">Stories</button>
+      <button id="share-button" class="icon-control" type="button" aria-label="Copy a link to this view" title="Copy a link to this view">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
+      </button>
       <button id="rank-button" class="icon-control" type="button" aria-label="Top countries" aria-expanded="false" aria-controls="rankings" title="Top countries">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h11M4 18h6" /></svg>
       </button>
@@ -89,6 +114,16 @@
     </section>
 
     <div id="tooltip" class="tooltip" hidden></div>
+
+    <!-- A one-time pointer to the stories for first-time visitors -->
+    <div id="hint" class="hint" hidden>
+      <button id="hint-open" class="hint-open" type="button">New here? Start with a story</button>
+      <button id="hint-close" class="close" type="button" aria-label="Dismiss">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </div>
+
+    <div id="toast" class="toast" role="status" hidden></div>
 
     <dialog id="about" class="about card">
       <button id="about-close" class="icon-control about-close" type="button" aria-label="Close">

@@ -84,8 +84,18 @@ button {
   gap: 8px;
 }
 
-.brand {
+.brand-block {
   margin: 4px 10px 0;
+}
+
+.tagline {
+  margin: 1px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.brand {
+  margin: 0;
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 600;
@@ -541,6 +551,20 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+.quote-topic {
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.quote-topic + .quote {
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .quote {
   margin: 14px 0 0;
   padding-top: 14px;
@@ -950,6 +974,100 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- Loading message, first-visit hint, "link copied" note ---- */
+
+.loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text-soft);
+  transform: translate(-50%, -50%);
+}
+
+.loading[hidden],
+.hint[hidden],
+.toast[hidden] {
+  display: none;
+}
+
+.loading.is-error {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.hint {
+  position: fixed;
+  top: 66px;
+  right: 16px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--radius);
+  background: var(--strong);
+  color: var(--on-strong);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow);
+}
+
+/* A small pointer up towards the Stories button. */
+.hint::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: 150px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.hint-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.hint-open:hover {
+  text-decoration: underline;
+}
+
+.hint .close {
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.hint .close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: inherit;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  z-index: 30;
+  padding: 7px 12px;
+  border-radius: 7px;
+  background: var(--strong);
+  color: var(--on-strong);
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+
 /* ---- About dialog ---- */
 
 .about {
@@ -1080,6 +1198,23 @@ button {
   /* With a story caption at the top, keep the country card short below it. */
   body.has-story .country-card {
     max-height: 34vh;
+  }
+
+  .hint {
+    top: auto;
+    right: auto;
+    left: 50%;
+    bottom: 76px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  .hint::before {
+    display: none;
+  }
+
+  .tagline {
+    display: none;
   }
 
   .rankings,

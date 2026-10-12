@@ -130,7 +130,11 @@ export function renderCard(container, ctx) {
   // One quote, on the chosen topic if the speech has one.
   const quotes = thisYear?.quotes ?? [];
   const lead = quotes.find((q) => q.topic === topic.id) ?? quotes[0];
-  if (lead) parts.push(h('blockquote', { class: 'quote', title: labelOf[lead.topic] }, `“${lead.text}”`));
+  if (lead) {
+    // If the speech had nothing to quote on the chosen topic, say which topic this one is on.
+    if (lead.topic !== topic.id) parts.push(h('p', { class: 'quote-topic' }, `On ${midSentence(labelOf[lead.topic])}`));
+    parts.push(h('blockquote', { class: 'quote', title: labelOf[lead.topic] }, `“${lead.text}”`));
+  }
 
   // Everything else waits behind "Details".
   const hasMore = byYear || (indicator?.ready && Object.keys(indicator.series(iso)).length);

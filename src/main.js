@@ -1,6 +1,7 @@
 import { AttributionControl, Map, Marker, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import { feature } from 'topojson-client';
 import { drawSparkline } from './chart.js';
 import { loadJson, makeNamer, shapeInfo } from './data.js';
 import { makeLayers, pairOf, ranking } from './layers.js';
@@ -28,12 +29,22 @@ const EVENTS = [
   [2020, 'COVID-19 pandemic'],
 ];
 
-const [countries, speeches, topics, indicators] = await Promise.all([
-  loadJson('countries.geojson'),
-  loadJson('speeches.json'),
-  loadJson('topics.json'),
-  loadJson('indicators/index.json'),
-]);
+const loading = document.getElementById('loading');
+let topology, speeches, topics, indicators;
+try {
+  [topology, speeches, topics, indicators] = await Promise.all([
+    loadJson('countries.topo.json'),
+    loadJson('speeches.json'),
+    loadJson('topics.json'),
+    loadJson('indicators/index.json'),
+  ]);
+} catch (error) {
+  loading.textContent = "Couldn't load the data. Please check your connection and refresh the page.";
+  loading.classList.add('is-error');
+  throw error;
+}
+// The shapes arrive packed as TopoJSON (much smaller); unpack them to GeoJSON.
+const countries = feature(topology, topology.objects.countries);
 const layers = makeLayers({ topics, speeches, indicators });
 const nameOf = makeNamer(countries);
 const { centreOf, dots } = shapeInfo(countries);
@@ -246,6 +257,8 @@ mapReady.then(async () => {
   );
   await layers[state.layer].load?.();
   paintLayer();
+  loading.hidden = true;
+  showHintOnce();
   const story = STORIES.findIndex((st) => st.id === params.get('story'));
   if (story >= 0) openStory(story);
   else if (state.country) selectCountry(state.country);
@@ -542,6 +555,7 @@ function selectCountry(iso) {
   state.country = iso;
   setState(iso, { selected: true });
   spotlight(iso);
+  hint.hidden = true; // out of the card's way; it can come back next visit
   rankings.hidden = true;
   rankButton.setAttribute('aria-expanded', 'false');
   card.hidden = false;
@@ -689,6 +703,50 @@ function endStory() {
 storyPrev.addEventListener('click', () => openStory(state.story - 1));
 storyNext.addEventListener('click', () => openStory(state.story + 1));
 document.getElementById('story-close').addEventListener('click', endStory);
+
+// ---- First-visit hint and "copy link" -------------------------------------
+
+const hint = document.getElementById('hint');
+const HINT_KEY = 'atlas-meridian:seen-hint';
+
+// Shown once per browser. Storage can be unavailable (private browsing), in
+// which case the hint simply shows each visit.
+function showHintOnce() {
+  try {
+    if (localStorage.getItem(HINT_KEY)) return;
+  } catch {}
+  if (state.story === null) hint.hidden = false;
+}
+
+function dismissHint() {
+  hint.hidden = true;
+  try {
+    localStorage.setItem(HINT_KEY, '1');
+  } catch {}
+}
+
+document.getElementById('hint-close').addEventListener('click', dismissHint);
+document.getElementById('hint-open').addEventListener('click', () => storiesButton.click());
+storiesButton.addEventListener('click', dismissHint);
+
+const toast = document.getElementById('toast');
+let toastTimer = null;
+function showToast(text) {
+  toast.textContent = text;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (toast.hidden = true), 2000);
+}
+
+document.getElementById('share-button').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    showToast('Link copied');
+  } catch {
+    // Some browsers block clipboard access; the address bar has the same link.
+    showToast('Copy the link from the address bar');
+  }
+});
 
 // ---- About dialog -------------------------------------------------------
 
