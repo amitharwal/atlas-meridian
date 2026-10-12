@@ -11,6 +11,8 @@ its CO₂ emissions, foreign debt or women in parliament.
 - Slide or play through 80 years and watch topics rise and fall (9/11, the Paris Agreement, COVID).
 - See which countries talked about a topic most, including small island states that are
   hard to spot on a map.
+- Start from one of six short **stories**: the end of empire, the nuclear age, the fall of
+  the Berlin Wall, 9/11, the rise of climate talk, and Fiji's climate diplomacy.
 - Click a country for quotes from its speech, the countries it "speaks most like", and how
   its words compare with the numbers.
 
