@@ -12,7 +12,7 @@ function el(name, attrs = {}) {
 }
 
 // An SVG path through `series` (year -> value), broken wherever a year is missing.
-function linePath(series, [first, last], top, w, h) {
+export function linePath(series, [first, last], top, w, h) {
   let d = '';
   let drawing = false;
   for (let year = first; year <= last; year++) {

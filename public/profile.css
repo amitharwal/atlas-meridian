@@ -1,0 +1,328 @@
+/* Country profile pages. Same colours as the map (see src/style.css). */
+
+:root {
+  --bg: #f3f1ec;
+  --surface: #ffffff;
+  --line: #e2ded5;
+  --text: #1c1c1a;
+  --text-soft: #3d3c38;
+  --text-muted: #6b6a64;
+  --strong: #1c1c1a;
+  --on-strong: #ffffff;
+  --bar: #2f6194;
+  --world: #8a877f;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121417;
+    --surface: #1b1e22;
+    --line: #30353c;
+    --text: #e8eaed;
+    --text-soft: #c3c8cf;
+    --text-muted: #9097a1;
+    --strong: #e8eaed;
+    --on-strong: #121417;
+    --bar: #8fb8db;
+    --world: #7c838c;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 20px 20px 0;
+}
+
+.top .brand {
+  font: 600 19px 'Source Serif 4', Georgia, serif;
+  text-decoration: none;
+}
+
+.top nav {
+  display: flex;
+  gap: 18px;
+  font-size: 14px;
+}
+
+.top nav a {
+  color: var(--text-soft);
+  text-decoration: none;
+}
+
+.top nav a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 20px 24px;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+h1 {
+  margin: 2px 0 6px;
+  font: 600 clamp(34px, 6vw, 48px) / 1.1 'Source Serif 4', Georgia, serif;
+}
+
+.sub {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.lede {
+  max-width: 640px;
+  margin: 18px 0;
+  font: 19px/1.5 'Source Serif 4', Georgia, serif;
+  color: var(--text-soft);
+}
+
+.button {
+  display: inline-block;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: var(--strong);
+  color: var(--on-strong);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+section {
+  margin-top: 44px;
+}
+
+h2 {
+  margin: 0 0 4px;
+  font: 600 22px 'Source Serif 4', Georgia, serif;
+}
+
+.note {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.topics {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topics li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(60px, 200px) 56px 120px;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.topics a {
+  text-decoration: none;
+}
+
+.topics a:hover {
+  text-decoration: underline;
+}
+
+.meter {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--bar);
+}
+
+.value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px 28px;
+}
+
+.charts figure {
+  margin: 0;
+}
+
+.charts figcaption {
+  margin-top: 4px;
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: 64px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chart-country {
+  fill: none;
+  stroke: var(--bar);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-world {
+  fill: none;
+  stroke: var(--world);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.decades {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decades li {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.decade {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.quote {
+  margin: 0 0 22px;
+}
+
+.quote blockquote {
+  margin: 0;
+  font: 18px/1.5 'Source Serif 4', Georgia, serif;
+}
+
+.quote figcaption {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.numbers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 22px 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.figure {
+  font: 600 26px 'Source Serif 4', Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.year {
+  color: var(--text-muted);
+}
+
+.numbers .chart {
+  height: 40px;
+  margin-top: 6px;
+}
+
+.az {
+  columns: 3 220px;
+  column-gap: 32px;
+  margin-top: 24px;
+}
+
+.letter {
+  margin: 0 0 18px;
+  break-inside: avoid;
+}
+
+.letter h2 {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.letter ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.letter li {
+  padding: 2px 0;
+}
+
+footer {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+  border-top: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .topics li {
+    grid-template-columns: minmax(0, 1fr) 56px;
+  }
+
+  .topics .meter {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .topics .compare {
+    grid-column: 1 / -1;
+  }
+}
