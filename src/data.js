@@ -36,11 +36,11 @@ export function makeNamer(countries) {
 }
 
 // Places whose largest piece of land is smaller than this (in square degrees,
-// roughly 150 km across) are too small to see or click on a globe, so they
+// roughly 150 km across) are too small to see or click on the map, so they
 // also get a dot marker. That's most island states, plus places like Malta.
 const SMALL_AREA = 2;
 
-// A rough centre for each country, used to fly the globe there: the middle of
+// A rough centre for each country, used to fly the map there: the middle of
 // its largest piece of land (so France centres on Europe, not French Guiana).
 // Also returns dot markers for the small places.
 export function shapeInfo(countries) {

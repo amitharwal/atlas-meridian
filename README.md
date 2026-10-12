@@ -4,7 +4,7 @@
 
 Every September, each UN member gives a speech at the General Assembly's General Debate.
 Atlas Meridian reads all of them, over 11,000 speeches from 1946 to 2025, sorts what each
-country talked about into 16 topics, and puts it on an interactive globe next to World Bank
+country talked about into 16 topics, and puts it on an interactive world map next to World Bank
 figures. You can see what a country *says* about climate, debt or gender equality alongside
 its CO₂ emissions, foreign debt or women in parliament.
 
@@ -27,7 +27,7 @@ It's a free, open-source static website: no accounts, no tracking, no server.
    It measures talking about the same things, not friendship.
 3. **Indicators.** `pipeline/build_indicators.py` downloads eight World Bank series. A GitHub
    Action refreshes them monthly and redeploys the site.
-4. **The site** (`index.html`, `src/`) is plain JavaScript built with Vite, with the globe
+4. **The site** (`index.html`, `src/`) is plain JavaScript built with Vite, with the map
    drawn by [MapLibre GL](https://maplibre.org/). All data is pre-computed JSON in `public/data/`.
 
 ### Accuracy
