@@ -2,9 +2,10 @@
 
 Downloads Natural Earth's 1:50m country borders (public domain), keeps only
 the fields the site needs, rounds coordinates to shrink the file, and writes
-public/data/countries.geojson.
+pipeline/build/countries.geojson. pipeline/build_topology.mjs then packs that
+into the compact file the site loads.
 
-Run from the project root:  python3 pipeline/build_countries.py
+Run from the project root:  npm run build:map
 """
 
 import json
@@ -15,7 +16,7 @@ SOURCE_URL = (
     "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
     "master/geojson/ne_50m_admin_0_countries.geojson"
 )
-OUTPUT = Path(__file__).resolve().parent.parent / "public" / "data" / "countries.geojson"
+OUTPUT = Path(__file__).resolve().parent / "build" / "countries.geojson"
 
 # 3 decimal places is roughly 100 m — far finer than the map ever needs.
 PRECISION = 3

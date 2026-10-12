@@ -68,7 +68,7 @@ python3 pipeline/build_indicators.py           # World Bank figures (standard li
 
 python3 -m venv .venv
 .venv/bin/pip install -r pipeline/requirements.txt
-python3 pipeline/build_countries.py            # map shapes
+npm run build:map                              # map shapes (Natural Earth → TopoJSON)
 .venv/bin/python pipeline/analyze_speeches.py  # speeches → topics (see below)
 ```
 
