@@ -1,4 +1,4 @@
-import { AttributionControl, Map, NavigationControl, setWorkerUrl } from 'maplibre-gl';
+import { AttributionControl, Map, Marker, NavigationControl, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { drawSparkline } from './chart.js';
@@ -69,11 +69,27 @@ function rampColor(stops) {
   return ['interpolate', ['linear'], ['coalesce', ['feature-state', 'value'], 0], ...RAMP.flatMap((c, i) => [stops[i], c])];
 }
 
-// The whole inhabited world, left of the date line to the Arctic. The map opens
-// fitted to this, clear of the controls at the top and the year bar below.
-const WORLD = [[-170, -57], [180, 78]];
-const worldPadding = () =>
-  phone.matches ? { top: 130, bottom: 80, left: 8, right: 8 } : { top: 70, bottom: 90, left: 40, right: 40 };
+// The opening view: centred on Europe and Africa, close enough that the
+// screen is never wider than one copy of the world (no Alaska twice), and
+// tall enough to show from Cape Horn to Scandinavia between the controls.
+const mercatorY = (lat) => (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2;
+const latitudeAt = (y) => (360 / Math.PI) * Math.atan(Math.exp(Math.PI * (1 - 2 * y))) - 90;
+
+// The closest you can zoom out before the world starts repeating across the screen.
+const noRepeatZoom = () => Math.log2((innerWidth * 1.05) / 512);
+
+function homeView() {
+  const [north, south] = [72, -50];
+  const top = phone.matches ? 130 : 70;
+  const bottom = phone.matches ? 80 : 90;
+  const span = mercatorY(south) - mercatorY(north);
+  const fitHeight = Math.log2((innerHeight - top - bottom) / (span * 512));
+  const zoom = Math.max(fitHeight, noRepeatZoom());
+  // Centre between the two latitudes, nudged for the uneven space above and below.
+  const scale = 512 * 2 ** zoom;
+  const middle = (mercatorY(north) + mercatorY(south)) / 2 + (bottom - top) / 2 / scale;
+  return { center: [15, latitudeAt(middle)], zoom };
+}
 
 // Antarctica has no data and would be a huge empty band along the bottom.
 const notAntarctica = ['!=', ['get', 'iso3'], 'ATA'];
@@ -97,6 +113,14 @@ const style = {
       paint: { 'fill-color': color('--land'), 'fill-opacity': ['case', has, 1, 0] },
     },
     { id: 'country-border', type: 'line', source: 'countries', filter: notAntarctica, paint: { 'line-color': color('--border'), 'line-width': 0.5 } },
+    // The selected country gets a white edge under a dark outline, so it stands
+    // out against both light and dark neighbours.
+    {
+      id: 'country-halo',
+      type: 'line',
+      source: 'countries',
+      paint: { 'line-color': '#ffffff', 'line-width': 6, 'line-opacity': ['case', selected, 1, 0] },
+    },
     {
       id: 'country-outline',
       type: 'line',
@@ -104,7 +128,7 @@ const style = {
       paint: {
         'line-color': color('--select'),
         'line-opacity': ['case', selected, 1, hovered, 0.6, 0],
-        'line-width': ['case', selected, 2, 1.2],
+        'line-width': ['case', selected, 2.2, 1.2],
       },
     },
     // Dots for places too small to see or click; only shown where there's data.
@@ -116,26 +140,31 @@ const style = {
         'circle-color': color('--land'),
         'circle-opacity': ['case', has, 1, 0],
         'circle-stroke-opacity': ['case', has, 1, 0],
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 3, 4, 5, 7, 6],
+        // (Zoom has to be the outer rule, so "selected" is repeated at each step.)
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, ['case', selected, 7, 3], 4, ['case', selected, 8, 5], 7, ['case', selected, 9, 6]],
         'circle-stroke-color': ['case', selected, color('--select'), hovered, color('--select'), color('--border')],
-        'circle-stroke-width': ['case', selected, 2, hovered, 1.5, 1],
+        'circle-stroke-width': ['case', selected, 2.5, hovered, 1.5, 1],
       },
     },
   ],
 };
 
+const home = homeView();
 const map = new Map({
   container: 'map',
   style,
-  bounds: WORLD,
-  fitBoundsOptions: { padding: worldPadding() },
+  center: home.center,
+  zoom: home.zoom,
   // Wrap around at the date line, so Pacific countries like Fiji can sit mid-screen.
   renderWorldCopies: true,
   attributionControl: false,
 });
-// How far out the opening view is; zooming further out only shows empty space.
-const homeZoom = map.getZoom();
-map.setMinZoom(homeZoom - 0.3);
+const homeZoom = home.zoom;
+// Don't let people zoom out to where the world repeats; a phone may go a bit
+// further out than its opening view to see more at once.
+const updateMinZoom = () => map.setMinZoom(Math.max(noRepeatZoom(), homeZoom - 1));
+updateMinZoom();
+map.on('resize', updateMinZoom);
 map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right');
 map.addControl(
   new AttributionControl({ compact: true, customAttribution: 'Speeches: UN General Debate Corpus · Data: World Bank (CC BY 4.0) · Borders: Natural Earth' }),
@@ -203,7 +232,13 @@ mapReady.then(async () => {
   document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
   map.addImage('hatch', hatchImage());
   map.addLayer(
-    { id: 'country-nodata', type: 'fill', source: 'countries', filter: notAntarctica, paint: { 'fill-pattern': 'hatch' } },
+    {
+      id: 'country-nodata',
+      type: 'fill',
+      source: 'countries',
+      filter: notAntarctica,
+      paint: { 'fill-pattern': 'hatch', 'fill-opacity': ['case', has, 0, 1] },
+    },
     'country-fill',
   );
   await layers[state.layer].load?.();
@@ -380,6 +415,7 @@ function showYear() {
 function setYear(year) {
   state.year = year;
   showYear();
+  if (state.country) label.textContent = nameOf(state.country, year);
   if (layers[state.layer].ready) paintYear();
   refreshCard();
   refreshRankings();
@@ -467,10 +503,31 @@ map.on('click', (e) => {
 
 const details = {}; // iso3 -> loaded detail file, fetched the first time it's needed
 
+// While a country is chosen, every other country fades back and a name label
+// is pinned on the map, so it's obvious which one the card is about.
+const label = document.createElement('div');
+label.className = 'map-label';
+const labelMarker = new Marker({ element: label, anchor: 'bottom', offset: [0, -10] });
+
+function spotlight(iso) {
+  const on = iso !== null;
+  map.setPaintProperty('country-fill', 'fill-opacity', on ? ['case', selected, 1, has, 0.35, 0] : ['case', has, 1, 0]);
+  // Stripes only under countries without data, so faded countries don't show them through.
+  map.setPaintProperty('country-nodata', 'fill-opacity', ['case', has, 0, on ? 0.5 : 1]);
+  map.setPaintProperty('country-dots', 'circle-opacity', on ? ['case', selected, 1, has, 0.35, 0] : ['case', has, 1, 0]);
+  if (on && centreOf[iso]) {
+    label.textContent = nameOf(iso, state.year);
+    labelMarker.setLngLat(centreOf[iso]).addTo(map);
+  } else {
+    labelMarker.remove();
+  }
+}
+
 function selectCountry(iso) {
   setState(state.country, { selected: false });
   state.country = iso;
   setState(iso, { selected: true });
+  spotlight(iso);
   rankings.hidden = true;
   rankButton.setAttribute('aria-expanded', 'false');
   card.hidden = false;
@@ -481,7 +538,7 @@ function selectCountry(iso) {
   if (centreOf[iso]) {
     // Keep the country clear of the card: on wide screens shift the view left.
     const offset = phone.matches ? [0, -innerHeight * 0.2] : [-180, 0];
-    const zoom = Math.max(map.getZoom(), homeZoom + (smallPlaces.has(iso) ? 1.5 : 0.5));
+    const zoom = Math.max(map.getZoom(), homeZoom + (smallPlaces.has(iso) ? 1.3 : 0.3));
     map.flyTo({ center: centreOf[iso], zoom, offset, speed: 0.8 });
   }
   if (speeches.shares[iso] && !(iso in details)) {
@@ -498,6 +555,7 @@ function selectCountry(iso) {
 function closeCountry() {
   setState(state.country, { selected: false });
   state.country = null;
+  spotlight(null);
   card.hidden = true;
   saveToUrl();
 }

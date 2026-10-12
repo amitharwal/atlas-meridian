@@ -591,6 +591,33 @@ button {
   font-size: 11px;
 }
 
+/* ---- Name label pinned on the selected country ---- */
+
+.map-label {
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: var(--strong);
+  color: var(--on-strong);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* A small pointer under the label, aimed at the country. */
+.map-label::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  z-index: -1;
+}
+
 /* ---- Timeline ---- */
 
 .timeline {
