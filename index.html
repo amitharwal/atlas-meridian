@@ -3,51 +3,83 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Atlas Meridian — explore what the world's nations say at the United Nations." />
+    <meta name="description" content="Atlas Meridian — explore what the world's nations say at the United Nations, and what the numbers show." />
     <title>Atlas Meridian</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <header class="masthead">
-      <h1>Atlas Meridian</h1>
-      <p>What the world says at the United Nations</p>
-    </header>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <h1>Atlas Meridian</h1>
+          <p>What the world says at the United Nations, and what the numbers show</p>
+        </div>
+        <button id="rail-open" class="layer-chip" type="button" aria-controls="rail" aria-expanded="false">
+          <span id="layer-chip-label"></span>
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+        <button id="about-open" class="pill-button" type="button">About the data</button>
+      </header>
 
-    <section class="controls card" aria-label="Map settings">
-      <label class="controls-label" for="layer">Colour the map by</label>
-      <select id="layer"></select>
-      <div class="legend">
-        <div class="legend-ramp"></div>
-        <div id="legend-scale" class="legend-scale"></div>
-        <p class="legend-note"><span id="legend-text"></span>
-          <span class="legend-none"></span> No data that year.</p>
-        <p class="legend-note">Click any country to see what it said.</p>
-      </div>
-      <button id="about-open" class="link-button" type="button">About this data</button>
-    </section>
+      <section id="rail" class="rail card" aria-label="Choose what to colour the map by">
+        <div class="rail-head">
+          <label for="layer-search">Colour the map by</label>
+          <button id="rail-close" class="icon-button rail-close" type="button" aria-label="Close">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        <div class="search">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+          <input id="layer-search" type="search" placeholder="Search topics and data" autocomplete="off" />
+        </div>
+        <div id="layer-list" class="layer-list"></div>
+        <div class="legend">
+          <div class="legend-ramp"></div>
+          <div id="legend-scale" class="legend-scale"></div>
+          <p class="legend-none"><span class="hatch"></span> <span id="legend-none-text">No data that year</span></p>
+          <p id="legend-text" class="legend-text"></p>
+        </div>
+      </section>
 
-    <div id="map" aria-label="Interactive globe of the world's countries"></div>
+      <main class="stage">
+        <div id="map" aria-label="Interactive globe of the world's countries"></div>
+        <section id="timeline" class="timeline card" aria-label="Year">
+          <button id="play" class="play" type="button" aria-label="Play through the years">
+            <svg class="icon-play" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>
+            <svg class="icon-pause" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+          </button>
+          <div class="track">
+            <div class="track-chart">
+              <svg id="spark" aria-hidden="true" viewBox="0 0 1000 40" preserveAspectRatio="none"></svg>
+            </div>
+            <div class="track-slider">
+              <div id="events" class="events"></div>
+              <input id="year" type="range" min="1946" max="2025" step="1" aria-label="Year" />
+            </div>
+            <div class="track-ends"><span id="year-min"></span><span id="track-note"></span><span id="year-max"></span></div>
+          </div>
+          <output id="year-label" class="year-label" for="year"></output>
+        </section>
+      </main>
+
+      <aside id="panel" class="panel card" data-sheet="peek">
+        <button id="sheet-toggle" class="sheet-toggle" type="button" aria-expanded="false">
+          <span class="sheet-grip"></span>
+          <span id="sheet-toggle-label">Show more</span>
+        </button>
+        <div id="timeline-slot"></div>
+        <div id="panel-body" class="panel-body"></div>
+      </aside>
+    </div>
 
     <div id="tooltip" class="tooltip" hidden></div>
 
-    <aside id="panel" class="panel card" hidden>
-      <button id="panel-close" class="panel-close" aria-label="Close panel">&times;</button>
-      <div id="panel-body"></div>
-    </aside>
-
-    <section class="timeline card" aria-label="Year">
-      <button id="play" class="play" type="button" aria-label="Play through the years">▶</button>
-      <div class="timeline-track">
-        <input id="year" type="range" min="1946" max="2025" step="1" aria-label="Year" />
-        <div class="timeline-ends"><span id="year-min"></span><span id="year-max"></span></div>
-      </div>
-      <output id="year-label" class="year-label" for="year"></output>
-    </section>
-
     <dialog id="about" class="about card">
-      <button id="about-close" class="panel-close" aria-label="Close">&times;</button>
+      <button id="about-close" class="icon-button about-close" type="button" aria-label="Close">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
       <h2>About this data</h2>
       <p>Every September, each UN member gives a speech at the General Assembly's General Debate.
         Atlas Meridian reads every one of them, from 1946 to 2025 (over 11,000 speeches), and
