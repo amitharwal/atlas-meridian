@@ -64,6 +64,14 @@ h1 {
   font-size: 17px;
 }
 
+.nowrap {
+  white-space: nowrap;
+}
+
+[tabindex='-1']:focus {
+  outline: none;
+}
+
 .muted {
   margin: 8px 0 0;
   color: var(--text-muted);

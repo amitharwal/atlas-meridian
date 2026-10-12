@@ -175,7 +175,7 @@ function mentionsLayer(speeches) {
 }
 
 // How senior the person who gave the speech was. Ranks come from
-// pipeline/build_speakers.py; titles are recorded consistently from 1990.
+// pipeline/build_speakers.py; titles are recorded consistently from 1994.
 export const RANK_LABELS = ['Minister or diplomat', 'Foreign minister', 'Deputy leader', 'Head of state or government'];
 
 function speakerLayer() {
@@ -183,7 +183,7 @@ function speakerLayer() {
     kind: 'speaker',
     id: 'speaker',
     label: 'Who gave the speech',
-    years: [1990, 2025],
+    years: [1994, 2025],
     // Ranks 0–3 spread across the whole colour scale.
     stops: [0, 0.75, 1.5, 2.25, 3],
     legendLabels: ['Diplomat', 'Leader'],

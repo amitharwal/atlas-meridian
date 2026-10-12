@@ -37,17 +37,41 @@ function random(seed) {
 
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// Words that would give the answer away: the country's names, and any word
-// starting with them minus a final vowel ("Ukrain" catches "Ukrainian").
-function giveaways(iso, year) {
-  const names = new Set([nameOf(iso, year), nameOf(iso, 9999)]);
-  const stems = [];
-  for (const name of names) {
-    stems.push(escapeRegex(name));
-    const last = name.split(' ').at(-1);
-    if (last.length >= 5) stems.push(`${escapeRegex(last.replace(/[aeiouy]$/, ''))}[a-z]*`);
-  }
-  return new RegExp(`(?<![A-Za-z])(?:${stems.join('|')})(?![A-Za-z])`, 'g');
+// Words that would give the answer away: every name the country has had, in
+// any spacing ("Viet Nam", "Guinea- Bissau"), plus the words built on it.
+// Long names catch any ending ("Ukrain…" -> "Ukrainian"); short names only
+// the usual ones (Cuban, Peruvian, Chinese, Iraqi), so "Peru" doesn't also
+// blank "perhaps".
+const ENDINGS = 'n|an|ans|ian|ians|ese|i|is|vian|vians|ns';
+
+function namePattern(name) {
+  const letters = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z]/g, '');
+  const spaced = (text) => [...text].map(escapeRegex).join('[\\s\\-–.]*');
+  if (letters.length >= 6) return `${spaced(letters.replace(/[aeiouy]$/i, ''))}[A-Za-z]*`;
+  const options = [`${spaced(letters)}(?:${ENDINGS})?`];
+  if (/[aeiouy]$/i.test(letters)) options.push(`${spaced(letters.slice(0, -1))}(?:ese|ian|ians|an|ans)`);
+  return options.join('|');
+}
+
+// Adjectives that can't be worked out from the name.
+const IRREGULAR = {
+  IRL: ['Irish'], GBR: ['British', 'Briton', 'English', 'Scottish', 'Welsh'], FRA: ['French'], NLD: ['Dutch'],
+  CHE: ['Swiss'], ESP: ['Spanish', 'Spaniard'], DNK: ['Danish', 'Dane'], SWE: ['Swedish', 'Swede'],
+  FIN: ['Finnish', 'Finn'], POL: ['Polish', 'Pole'], TUR: ['Turkish', 'Turk'], GRC: ['Greek', 'Hellenic'],
+  PHL: ['Filipino'], THA: ['Thai'], NZL: ['New Zealander'], USA: ['American'], DEU: ['German'],
+  ISL: ['Icelandic', 'Icelander'], LUX: ['Luxembourgish', 'Luxembourger'], PRT: ['Portuguese'], CZE: ['Czech'],
+  SVK: ['Slovak'], HRV: ['Croat', 'Croatian'], SRB: ['Serb', 'Serbian'], BIH: ['Bosnian'], RUS: ['Soviet', 'Russian'],
+  YEM: ['Yemeni'], PAK: ['Pakistani'], AFG: ['Afghan'], BGD: ['Bangladeshi'], MDG: ['Malagasy'], LSO: ['Basotho'],
+  BWA: ['Motswana', 'Batswana'], COD: ['Congolese'], COG: ['Congolese'], CIV: ['Ivorian'], MCO: ['Monegasque'],
+  CYP: ['Cypriot'], MLT: ['Maltese'], SAU: ['Saudi'], ARE: ['Emirati'], KWT: ['Kuwaiti'], QAT: ['Qatari'],
+};
+
+const allNames = (iso) => new Set(Array.from({ length: 80 }, (_, i) => nameOf(iso, 1946 + i)).concat(nameOf(iso, 9999)));
+
+function giveaways(iso) {
+  const patterns = [...allNames(iso)].map(namePattern);
+  for (const word of IRREGULAR[iso] ?? []) patterns.push(`${escapeRegex(word)}s?`);
+  return new RegExp(`(?<![A-Za-z])(?:${patterns.join('|')})(?![A-Za-z])`, 'gi');
 }
 
 // Capitalised names that are just UN vocabulary, not clues.
@@ -79,10 +103,12 @@ for (const iso of Object.keys(speeches.shares)) {
       // …and stray characters from scanning (a "^" in place of a comma).
       const text = quote.text.replace(/(^|[.!?”"]\s+)\d{1,3}\.\s+/g, '$1').replace(/\^/g, ',').trim();
       if (text.length < 140 || text.length > 320) continue;
-      const pattern = giveaways(iso, Number(year));
+      const pattern = giveaways(iso);
       const blanks = text.match(pattern)?.length ?? 0;
       if (blanks > 2) continue; // too much about itself to be a fair question
       const blanked = text.replace(pattern, '▇▇▇');
+      // Safety net: if the name still shows through somehow, skip the quote.
+      if (giveaways(iso).test(blanked)) continue;
       // A fair question needs something to go on.
       if (clues(blanked) < 2) continue;
       candidates.push({ iso, year: Number(year), topic: quote.topic, text: blanked });

@@ -203,7 +203,7 @@ function profile(iso) {
   };
 
   // How often a leader delivered the speech in person, since titles were recorded.
-  const ranked = years.filter((y) => y >= 1990 && speakers[iso]?.[y]?.[2] != null);
+  const ranked = years.filter((y) => y >= 1994 && speakers[iso]?.[y]?.[2] != null);
   const byLeader = ranked.filter((y) => speakers[iso][y][2] === 3).length;
   const quotes = [
     ...(detail.years[last]?.quotes ?? []).slice(0, 2).map((q) => quote(q, last)),
@@ -257,7 +257,7 @@ ${chart(series, {}, `Number of countries naming ${name} each year`)}
     former.length ? `. Includes speeches as ${escape(former.map(withArticle).join(' and '))}` : ''
   }.</p>
 <p class="lede">${intro}</p>
-${ranked.length >= 5 ? `<p class="sub">Since 1990, its head of state or government gave the speech in ${byLeader} of ${ranked.length} years.</p>` : ''}
+${ranked.length >= 5 ? `<p class="sub">Since 1994, its head of state or government gave the speech in ${byLeader} of ${ranked.length} years.</p>` : ''}
 <p><a class="button" href="../../#layer=${lead.id}&year=${last}&country=${iso}">Open on the map</a></p>
 
 <section><h2>Main topics, ${first}–${last}</h2>
@@ -296,14 +296,25 @@ for (const iso of sorted) {
   writeFileSync(`${DIST}/country/${slug[iso]}/index.html`, profile(iso));
 }
 
-// A–Z list, grouped by first letter.
+// A–Z list, grouped by first letter. Former names get an entry too
+// ("Soviet Union, see Russia"), since that's what some people look for.
+const entries = sorted.map((iso) => ({ name: todayName(iso), iso }));
+for (const iso of sorted) {
+  const former = new Set(Object.keys(speeches.shares[iso]).map((y) => nameOf(iso, Number(y))));
+  for (const name of former) if (name !== todayName(iso)) entries.push({ name, iso, see: todayName(iso) });
+}
+entries.sort((a, b) => a.name.localeCompare(b.name));
 const groups = {};
-for (const iso of sorted) (groups[todayName(iso)[0].toUpperCase()] ??= []).push(iso);
+for (const entry of entries) (groups[entry.name[0].toUpperCase()] ??= []).push(entry);
 const list = Object.entries(groups)
   .map(
-    ([letter, isos]) =>
-      `<section class="letter"><h2>${letter}</h2><ul>${isos
-        .map((iso) => `<li><a href="${slug[iso]}/">${escape(todayName(iso))}</a></li>`)
+    ([letter, items]) =>
+      `<section class="letter"><h2>${letter}</h2><ul>${items
+        .map(({ name, iso, see }) =>
+          see
+            ? `<li>${escape(name)}, <span class="see">see <a href="${slug[iso]}/">${escape(see)}</a></span></li>`
+            : `<li><a href="${slug[iso]}/">${escape(name)}</a></li>`,
+        )
         .join('')}</ul></section>`,
   )
   .join('\n');

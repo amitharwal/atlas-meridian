@@ -8,7 +8,7 @@ Rank sorts the hundreds of differently written job titles into four levels:
   2  deputy leader (vice-president, deputy prime minister, crown prince)
   1  foreign minister
   0  another minister, an ambassador or a delegation head
-Titles are only recorded consistently from about 1990, so earlier speeches
+Titles are recorded for almost every speech from 1994 (under a quarter before), so earlier speeches
 mostly have a name but no rank.
 
 Run from the project root:  .venv/bin/python pipeline/build_speakers.py
@@ -43,6 +43,33 @@ RANKS = [
 ]
 
 
+# Courtesy titles the spreadsheet sometimes includes in the name itself.
+HONORIFICS = re.compile(
+    r"^(?:(?:Dr\.? )?(?:The )?(?:Right )?Honou?rable|(?:(?:His|Her) )?(?:Serene |Royal )?(?:Excellency|Highness|Majesty)|H\.\s?E\.|"
+    r"S\.?E\.)\s+|\s+(?:MP|M\.P\.)$",
+    re.IGNORECASE,
+)
+ROMAN = re.compile(r"^(?:I{1,3}|IV|VI{0,3}|IX|X{1,3})$")
+
+
+def tidy_name(name):
+    """"Mr. PAZHWAK" -> "Mr. Pazhwak", "The Honorable Alexander DOWNER MP" -> "Alexander Downer"."""
+    name = " ".join(str(name).split())
+    previous = None
+    while previous != name:  # titles can stack: "His Highness Sheikh..."
+        previous = name
+        name = HONORIFICS.sub("", name).strip()
+
+    def fix(word):
+        letters = re.sub(r"[^A-Za-z]", "", word)
+        if len(letters) >= 3 and letters.isupper() and not ROMAN.match(letters):
+            # Title-case each part of hyphenated or apostrophe names: AL-NAHYAN -> Al-Nahyan.
+            return re.sub(r"[A-Za-z]+", lambda m: m.group(0).capitalize(), word.lower())
+        return word
+
+    return " ".join(fix(w) for w in name.split())
+
+
 def rank_of(title):
     if not title:
         return None
@@ -69,7 +96,7 @@ def main():
         rank = rank_of(title)
         if title and rank is None:
             unranked[title] = unranked.get(title, 0) + 1
-        out.setdefault(code, {})[str(year)] = [" ".join(str(name).split()) if name else None, title, rank]
+        out.setdefault(code, {})[str(year)] = [tidy_name(name) if name else None, title, rank]
 
     OUTPUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
     n = sum(len(v) for v in out.values())
