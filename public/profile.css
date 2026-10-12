@@ -303,6 +303,10 @@ h2 {
   padding: 2px 0;
 }
 
+.see {
+  color: var(--text-muted);
+}
+
 footer {
   max-width: 880px;
   margin: 0 auto;

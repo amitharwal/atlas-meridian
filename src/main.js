@@ -196,11 +196,32 @@ const homeZoom = home.zoom;
 const updateMinZoom = () => map.setMinZoom(Math.max(noRepeatZoom(), homeZoom - 1));
 updateMinZoom();
 map.on('resize', updateMinZoom);
-map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right');
+// Bottom left, so the country card on the right never covers them.
+map.addControl(new NavigationControl({ showCompass: false }), 'bottom-left');
 map.addControl(
   new AttributionControl({ compact: true, customAttribution: 'Speeches: UN General Debate Corpus · Data: World Bank (CC BY 4.0) · Borders: Natural Earth' }),
   'bottom-left',
 );
+
+// The part of the map not covered by floating panels, as padding for camera
+// moves, so whatever we fly to lands where it can actually be seen.
+function clearArea() {
+  const box = (el) => (el && !el.hidden ? el.getBoundingClientRect() : null);
+  const panel = box(document.querySelector('.control-group'));
+  const cardBox = box(document.getElementById('card'));
+  const story = box(document.getElementById('story-bar'));
+  const bar = box(document.getElementById('timeline'));
+  // On phones the card sits above the year bar and can grow once its quote
+  // loads, so plan for its full height (45% of the screen, see style.css).
+  const cardTop = phone.matches && cardBox ? Math.min(cardBox.top, (bar?.top ?? innerHeight) - 10 - innerHeight * 0.45) : null;
+  const bottomEdge = Math.min(...[bar?.top, story?.top, cardTop].filter((v) => v != null), innerHeight);
+  const padding = { top: 16, bottom: innerHeight - bottomEdge + 12, left: 16, right: 16 };
+  if (phone.matches) padding.top = (panel?.bottom ?? 0) + 12;
+  else if (cardBox) padding.right = innerWidth - cardBox.left + 12;
+  // Never squeeze the clear area to nothing on very small screens.
+  padding.bottom = Math.min(padding.bottom, innerHeight - padding.top - 80);
+  return padding;
+}
 
 function setState(id, featureState) {
   if (id === null || !centreOf[id]) return;
@@ -260,7 +281,7 @@ function paintLayer() {
       : layer.kind === 'topic'
       ? "Share of each country's speech spent on this topic"
       : layer.kind === 'speaker'
-        ? 'How senior the person who gave the speech was. Titles are recorded from 1990.'
+        ? 'How senior the person who gave the speech was. Titles are recorded from 1994.'
         : `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank`;
   drawSparkline(spark, layer.world, speeches.years);
   paintYear();
@@ -300,6 +321,7 @@ mapReady.then(async () => {
     'country-fill',
   );
   await layers[state.layer].load?.();
+  keepYearInRange(layers[state.layer]);
   paintLayer();
   loading.hidden = true;
   showHintOnce();
@@ -434,8 +456,28 @@ const layerList = document.getElementById('layer-list');
 const search = document.getElementById('layer-search');
 const layerLabel = document.getElementById('layer-label');
 
+// "CO₂" should be found by typing "co2", and everyday words should work too.
+const normaliseSearch = (text) =>
+  text
+    .normalize('NFKD') // turns the subscript ₂ into a plain 2
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+const KEYWORDS = {
+  gdp_pc: 'economy wealth income rich poor money',
+  co2_pc: 'carbon co2 emissions pollution greenhouse climate',
+  life_exp: 'health lifespan age death',
+  women_parl: 'women gender parliament politics',
+  internet: 'online digital web technology',
+  ext_debt: 'debt loans borrowing',
+  trade_gdp: 'exports imports economy',
+  hunger: 'food famine malnutrition hunger',
+  speaker: 'leader president prime minister speaker who spoke',
+  mentions: 'mentions talks about countries names whom',
+};
+
 function buildList() {
-  const q = search.value.trim().toLowerCase();
+  const q = normaliseSearch(search.value);
   const groups = [
     ['What countries say', topics.map((t) => layers[t.id])],
     ['Who spoke', [layers.speaker, layers.mentions]],
@@ -443,7 +485,7 @@ function buildList() {
   ];
   const nodes = [];
   for (const [title, items] of groups) {
-    const shown = items.filter((l) => !q || l.label.toLowerCase().includes(q));
+    const shown = items.filter((l) => !q || normaliseSearch(`${l.label} ${l.short ?? ''} ${KEYWORDS[l.id] ?? ''}`).includes(q));
     if (!shown.length) continue;
     const heading = document.createElement('div');
     heading.className = 'layer-group';
@@ -505,8 +547,24 @@ async function setLayer(id) {
   await layers[id].load?.();
   await mapReady;
   if (state.layer !== id) return; // the reader picked something else while this loaded
+  keepYearInRange(layers[id]);
   paintLayer();
   refreshCard();
+}
+
+// A measure that starts later (CO₂ from 1970, speakers' titles from 1994):
+// rather than an empty or near-empty map, move to the nearest year it covers
+// and say so.
+function keepYearInRange(layer) {
+  const [first, last] = layer.years ?? [FIRST_YEAR, LAST_YEAR];
+  if (state.year >= first && state.year <= last) return;
+  const year = state.year < first ? first : last;
+  const message = `${titleOf(layer)}: figures ${state.year < first ? `start in ${first}` : `end in ${last}`}, so showing ${year}`;
+  const wasApplying = applyingStory;
+  applyingStory = true; // part of the same change, not a new one
+  setYear(year);
+  applyingStory = wasApplying;
+  showToast(message);
 }
 
 layerLabel.textContent = titleOf(layers[state.layer]);
@@ -711,10 +769,10 @@ function selectCountry(iso) {
   saveToUrl();
 
   if (centreOf[iso]) {
-    // Keep the country clear of the card: on wide screens shift the view left.
-    const offset = phone.matches ? [0, -innerHeight * 0.2] : [-180, 0];
+    // Wait a frame so the card has its size, then fly to the country within
+    // the part of the map the card and other panels leave visible.
     const zoom = Math.max(map.getZoom(), homeZoom + (smallPlaces.has(iso) ? 1.3 : 0.3));
-    map.flyTo({ center: centreOf[iso], zoom, offset, speed: 0.8 });
+    requestAnimationFrame(() => map.flyTo({ center: centreOf[iso], zoom, padding: clearArea(), speed: 0.8 }));
   }
   if (speeches.shares[iso] && !(iso in details)) {
     details[iso] = null;
@@ -727,8 +785,8 @@ function selectCountry(iso) {
   }
 }
 
+// Closing the card doesn't end a story; the reader can keep reading it.
 function closeCountry() {
-  if (!applyingStory) endStory();
   setState(state.country, { selected: false });
   state.country = null;
   spotlight(null);
@@ -836,7 +894,6 @@ function openStory(i) {
     selectCountry(story.country);
   } else {
     closeCountry();
-    map.flyTo({ ...homeView(), speed: 0.8 });
   }
   applyingStory = false;
 
@@ -848,6 +905,18 @@ function openStory(i) {
   storyNext.disabled = i === STORIES.length - 1;
   storyBar.hidden = false;
   document.body.classList.add('has-story');
+  // Frame the story's part of the world above the caption, once it's on screen.
+  requestAnimationFrame(() => {
+    document.documentElement.style.setProperty('--story-top', `${storyBar.getBoundingClientRect().top}px`);
+    if (!story.country) {
+      map.flyTo({
+        center: story.center ?? homeView().center,
+        zoom: homeZoom + (story.zoom ?? 0),
+        padding: clearArea(),
+        speed: 0.8,
+      });
+    }
+  });
   saveToUrl();
   return layerReady;
 }
@@ -895,7 +964,8 @@ function showToast(text) {
   toast.textContent = text;
   toast.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (toast.hidden = true), 2000);
+  // Long enough to read a sentence.
+  toastTimer = setTimeout(() => (toast.hidden = true), Math.max(2000, text.length * 60));
 }
 
 document.getElementById('share-button').addEventListener('click', async () => {
@@ -917,6 +987,10 @@ document.getElementById('about-close').addEventListener('click', () => about.clo
 about.addEventListener('click', (e) => {
   if (e.target === about) about.close();
 });
+
+// A different link opened in the same tab (pasted, or clicked elsewhere):
+// start again from it. Our own address updates don't trigger this.
+addEventListener('hashchange', () => location.reload());
 
 // Handy for poking at the map from the browser console while developing.
 if (import.meta.env.DEV) window.map = map;

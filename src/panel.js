@@ -64,7 +64,7 @@ export function renderRankings(container, { layer, year, rows, title, nameOf, on
               ),
             ),
           )
-        : h('p', { class: 'popover-title' }, `Speakers' titles are recorded from 1990.`),
+        : h('p', { class: 'popover-title' }, `Speakers' titles are recorded from 1994.`),
     );
     return;
   }

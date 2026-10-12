@@ -8,6 +8,9 @@ export const STORIES = [
     title: 'The end of empire',
     layer: 'decolonisation',
     year: 1960,
+    // Frame Africa rather than the default Europe-centred view.
+    center: [18, 4],
+    zoom: 0.5,
     text:
       'In 1960, the “Year of Africa”, newly independent states spoke most about ending colonial rule. ' +
       'The Republic of the Congo spent 71% of its speech on it. Worldwide it peaked at 21% in 1961 and fell to 3% by 2000.',

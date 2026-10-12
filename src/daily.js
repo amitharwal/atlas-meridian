@@ -115,9 +115,13 @@ function makeQuestions(data, seed) {
 
 // ---- Screens ------------------------------------------------------------------
 
+// Keyboard focus moves to the new screen's heading (not a button, which
+// would look like an answer was already picked).
 function render(...children) {
   app.replaceChildren(...children.filter(Boolean));
-  app.querySelector('button, a')?.focus({ preventScroll: true });
+  const heading = app.querySelector('h1, .kicker');
+  heading?.setAttribute('tabindex', '-1');
+  heading?.focus({ preventScroll: true });
 }
 
 function intro(number, start) {
@@ -128,7 +132,8 @@ function intro(number, start) {
       'p',
       { class: 'lede' },
       'Five real quotes from 80 years of speeches at the UN General Assembly. For each one, guess which country said it. ',
-      'The country’s own name is blanked out (▇▇▇).',
+      'The country’s own name is blanked out ',
+      h('span', { class: 'nowrap' }, '(▇▇▇).'),
     ),
     h('button', { type: 'button', class: 'primary', onclick: start }, 'Start'),
   );
@@ -253,11 +258,16 @@ function results(state, practiceAgain) {
 
 function play(data, { number, practice }) {
   const seed = practice ? Math.floor(Math.random() * 1e9) : number * 7919;
+  const questions = makeQuestions(data, seed);
+  // Saved progress only counts if it was for these exact questions (the quote
+  // pool can change when the site is rebuilt).
+  const key = questions.map((q) => `${q.iso}${q.year}`).join(',');
+  const previous = practice ? null : saved.get(number);
   const state = {
     number,
     practice,
-    questions: makeQuestions(data, seed),
-    answers: practice ? [] : saved.get(number)?.answers ?? [],
+    questions,
+    answers: previous?.key === key ? previous.answers : [],
     round: 0,
     picked: null,
   };
@@ -272,7 +282,7 @@ function play(data, { number, practice }) {
   function answer(iso) {
     state.picked = iso;
     state.answers[state.round] = iso === state.questions[state.round].iso;
-    if (!practice) saved.set(number, { answers: state.answers });
+    if (!practice) saved.set(number, { answers: state.answers, key });
     question(state, answer);
   }
 
