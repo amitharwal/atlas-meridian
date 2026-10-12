@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node pipeline/build_profiles.mjs",
+    "build": "vite build && node pipeline/build_profiles.mjs && node pipeline/build_daily.mjs",
     "preview": "vite preview",
     "build:map": "python3 pipeline/build_countries.py && node pipeline/build_topology.mjs"
   },

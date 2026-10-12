@@ -7,7 +7,7 @@
 // and writing into dist/.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { linePath } from '../src/chart.js';
-import { makeNamer, slugOf } from '../src/data.js';
+import { makeNamer, slugOf, speakerLabel } from '../src/data.js';
 
 const SITE = 'https://amitharwal.github.io/atlas-meridian/';
 const DIST = 'dist';
@@ -19,12 +19,7 @@ const indicators = read('indicators/index.json');
 const topology = read('countries.topo.json');
 const speakers = read('speakers.json');
 // "Prime Minister Frank Bainimarama", or just the name when no title was recorded.
-function speakerOf(iso, year) {
-  const entry = speakers[iso]?.[year];
-  if (!entry?.[0]) return null;
-  const [name, title] = entry;
-  return title ? `${title} ${name.replace(/^(Mr|Mrs|Ms|Dr)\.? /, '')}` : name;
-}
+const speakerOf = (iso, year) => speakerLabel(speakers[iso]?.[year]);
 const shapes = topology.objects.countries.geometries.map((g) => g.properties);
 const nameOf = makeNamer({ features: shapes.map((properties) => ({ properties })) });
 const continentOf = {
@@ -118,7 +113,7 @@ function page({ title, description, path, body }) {
 <body>
 <header class="top">
   <a class="brand" href="${root}">Atlas Meridian</a>
-  <nav><a href="${root}">Map</a><a href="${root}country/">All countries</a></nav>
+  <nav><a href="${root}">Map</a><a href="${root}country/">All countries</a><a href="${root}daily/">Daily puzzle</a></nav>
 </header>
 <main>
 ${body}
@@ -322,7 +317,7 @@ writeFileSync(
   }),
 );
 
-const urls = [SITE, `${SITE}country/`, ...sorted.map((iso) => `${SITE}country/${slug[iso]}/`)];
+const urls = [SITE, `${SITE}daily/`, `${SITE}country/`, ...sorted.map((iso) => `${SITE}country/${slug[iso]}/`)];
 writeFileSync(
   `${DIST}/sitemap.xml`,
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls

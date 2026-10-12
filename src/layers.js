@@ -1,7 +1,7 @@
 // Everything the map can be coloured by: speech topics and World Bank indicators.
 // Each layer knows how to look up a country's value, how to format it and where
 // its colour scale should start and stop.
-import { loadJson } from './data.js';
+import { loadJson, speakerLabel } from './data.js';
 
 // Indicator figures often lag a year or two behind. Rather than turning the map
 // grey for the latest years, show the most recent figure up to this many years old.
@@ -218,10 +218,7 @@ function speakerLayer() {
     },
     // "Prime Minister Frank Bainimarama", or just the name before titles were recorded.
     speaker(iso, year) {
-      const entry = layer.data?.[iso]?.[year];
-      if (!entry?.[0]) return null;
-      const [name, title] = entry;
-      return title ? `${title} ${name.replace(/^(Mr|Mrs|Ms|Dr)\.? /, '')}` : name;
+      return speakerLabel(layer.data?.[iso]?.[year]);
     },
   };
   return layer;

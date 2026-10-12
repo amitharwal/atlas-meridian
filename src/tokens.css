@@ -1,0 +1,70 @@
+/* Colours, shared by the map and the daily puzzle. The map reads them from here too. Data colours use a single
+   hue from light to dark, as printed atlases do. */
+
+:root {
+  --bg: #f3f1ec;
+  --ocean: #e6e3db;
+  --land: #dcd8cf;
+  --hatch: #c9c4b9;
+  --border: #f3f1ec;
+  --ramp-0: #d3e0ea;
+  --ramp-1: #9dbbd4;
+  --ramp-2: #5f8fb8;
+  --ramp-3: #2f6194;
+  --ramp-4: #0f3460;
+  --select: #1c1c1a;
+  --text: #1c1c1a;
+  --text-soft: #3d3c38;
+  --text-muted: #6b6a64;
+  --surface: rgba(255, 255, 255, 0.94);
+  --surface-sunk: #f3f1ec;
+  --surface-hover: #ece9e2;
+  --line: #e2ded5;
+  --shadow: 0 1px 2px rgba(28, 28, 26, 0.06), 0 8px 24px rgba(28, 28, 26, 0.08);
+  --strong: #1c1c1a;
+  --on-strong: #ffffff;
+  --bar: #2f6194;
+  --halo: #ffffff;
+  /* "Who talks about whom": the country being talked about. A different hue
+     from the blue scale so it can't be mistaken for a high value. */
+  --target: #d9822b;
+  color-scheme: light;
+}
+
+/* Night version, used automatically when the visitor's device is in dark mode.
+   On a dark background, higher values get lighter so they stand out. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121417;
+    --ocean: #171a1e;
+    --land: #262a30;
+    --hatch: #31363d;
+    --border: #121417;
+    --ramp-0: #2a3b4d;
+    --ramp-1: #3a5f80;
+    --ramp-2: #5a8bb5;
+    --ramp-3: #8fb8db;
+    --ramp-4: #d4e6f5;
+    --select: #ffffff;
+    --text: #e8eaed;
+    --text-soft: #c3c8cf;
+    --text-muted: #9097a1;
+    --surface: rgba(28, 31, 36, 0.94);
+    --surface-sunk: #1b1e22;
+    --surface-hover: #2a2e34;
+    --line: #30353c;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --strong: #e8eaed;
+    --on-strong: #121417;
+    --bar: #8fb8db;
+    --halo: #000000;
+    color-scheme: dark;
+  }
+
+  /* MapLibre's zoom and info buttons are drawn dark; flip them to light. */
+  .maplibregl-ctrl button .maplibregl-ctrl-icon,
+  .maplibregl-ctrl-attrib-button {
+    filter: invert(1);
+  }
+}
+

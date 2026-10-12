@@ -77,3 +77,24 @@ export const slugOf = (name) =>
     .replace(/['’]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+
+// "Prime Minister Frank Bainimarama" from a speakers.json entry [name, title, rank].
+// Long titles are cut to the main role: "Prime Minister and Minister for
+// Finance, Economic Growth…" becomes "Prime Minister".
+export function speakerLabel(entry) {
+  if (!entry?.[0]) return null;
+  const [name, title] = entry;
+  if (!title) return name;
+  const role = title.length > 28 ? title.split(/,| and /)[0].trim() : title;
+  return `${role} ${name.replace(/^(Mr|Mrs|Ms|Dr)\.? /, '')}`;
+}
+
+// Country names that read with "the" in a sentence: "It was the Soviet Union".
+export function withThe(name) {
+  if (/^the /i.test(name)) return name;
+  return /^(United|Soviet|Czech|Dominican|Central African|Democratic|Republic of|Federated|European|Netherlands|Philippines|Bahamas|Maldives|Comoros|Seychelles|Gambia)|Islands$/.test(
+    name,
+  )
+    ? `the ${name}`
+    : name;
+}
