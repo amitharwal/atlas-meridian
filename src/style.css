@@ -617,6 +617,12 @@ button {
   color: var(--text);
 }
 
+.card-speaker {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
 .card-note {
   margin: 6px 0 0;
   color: var(--text-muted);

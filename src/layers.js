@@ -125,12 +125,69 @@ export function makeLayers({ topics, speeches, indicators }) {
     layers[indicator.id] = layer;
   }
 
+  layers.speaker = speakerLayer();
   return layers;
 }
 
+// How senior the person who gave the speech was. Ranks come from
+// pipeline/build_speakers.py; titles are recorded consistently from 1990.
+export const RANK_LABELS = ['Minister or diplomat', 'Foreign minister', 'Deputy leader', 'Head of state or government'];
+
+function speakerLayer() {
+  const layer = {
+    kind: 'speaker',
+    id: 'speaker',
+    label: 'Who gave the speech',
+    years: [1990, 2025],
+    // Ranks 0–3 spread across the whole colour scale.
+    stops: [0, 0.75, 1.5, 2.25, 3],
+    legendLabels: ['Diplomat', 'Leader'],
+    format: (v) => RANK_LABELS[v],
+    worldLabel: 'Share given by leaders',
+    ready: false,
+    data: null,
+    loading: null,
+    load() {
+      layer.loading ??= loadJson('speakers.json').then((data) => {
+        // The world line: % of ranked speeches given by a head of state or government.
+        const byYear = {};
+        for (const years of Object.values(data)) {
+          for (const [year, [, , rank]] of Object.entries(years)) {
+            if (rank === null) continue;
+            byYear[year] ??= [0, 0];
+            byYear[year][0] += rank === 3;
+            byYear[year][1] += 1;
+          }
+        }
+        layer.world = Object.fromEntries(
+          Object.entries(byYear).filter(([, [, n]]) => n >= 50).map(([y, [leaders, n]]) => [y, (100 * leaders) / n]),
+        );
+        layer.data = data;
+        layer.ready = true;
+      });
+      return layer.loading;
+    },
+    value(iso, year) {
+      const rank = layer.data?.[iso]?.[year]?.[2];
+      return rank === null || rank === undefined ? null : { value: rank, year };
+    },
+    // "Prime Minister Frank Bainimarama", or just the name before titles were recorded.
+    speaker(iso, year) {
+      const entry = layer.data?.[iso]?.[year];
+      if (!entry?.[0]) return null;
+      const [name, title] = entry;
+      return title ? `${title} ${name.replace(/^(Mr|Mrs|Ms|Dr)\.? /, '')}` : name;
+    },
+  };
+  return layer;
+}
+
 // The speech topic and indicator that go together, whichever one is chosen.
-export function pairOf(layers, layer) {
+// The speaker layer has no topic of its own, so the card keeps showing the
+// last topic the reader chose (`fallbackTopic`).
+export function pairOf(layers, layer, fallbackTopic = 'climate') {
   if (layer.kind === 'indicator') return { topic: layers[layer.pairs], indicator: layer };
+  if (layer.kind === 'speaker') return pairOf(layers, layers[fallbackTopic]);
   const indicator = Object.values(layers).find((l) => l.kind === 'indicator' && l.pairs === layer.id);
   return { topic: layer, indicator };
 }

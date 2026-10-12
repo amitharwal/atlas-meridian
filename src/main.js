@@ -60,9 +60,10 @@ const phone = matchMedia('(max-width: 640px)');
 
 // What's on screen. Kept in the address bar so any view can be shared as a link.
 // Climate is the opening view: it changes the most visibly over time.
-const state = { layer: 'climate', year: LAST_YEAR, country: null, details: false, story: null };
+const state = { layer: 'climate', year: LAST_YEAR, country: null, details: false, story: null, lastTopic: 'climate' };
 const params = new URLSearchParams(location.hash.slice(1));
 if (layers[params.get('layer')]) state.layer = params.get('layer');
+if (layers[state.layer].kind === 'topic') state.lastTopic = state.layer;
 if (+params.get('year') >= FIRST_YEAR && +params.get('year') <= LAST_YEAR) state.year = +params.get('year');
 if (speeches.shares[params.get('country')] || centreOf[params.get('country')]) state.country = params.get('country');
 
@@ -229,12 +230,15 @@ function paintLayer() {
   map.setPaintProperty('country-fill', 'fill-color', rampColor(layer.stops));
   map.setPaintProperty('country-dots', 'circle-color', rampColor(layer.stops));
   const format = layer.legendFormat ?? layer.format;
-  document.getElementById('legend-min').textContent = format(layer.stops[0]);
-  document.getElementById('legend-max').textContent = `${format(layer.stops.at(-1))}+`;
+  const [low, high] = layer.legendLabels ?? [format(layer.stops[0]), `${format(layer.stops.at(-1))}+`];
+  document.getElementById('legend-min').textContent = low;
+  document.getElementById('legend-max').textContent = high;
   legend.title =
     layer.kind === 'topic'
       ? "Share of each country's speech spent on this topic"
-      : `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank`;
+      : layer.kind === 'speaker'
+        ? 'How senior the person who gave the speech was. Titles are recorded from 1990.'
+        : `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank`;
   drawSparkline(spark, layer.world, speeches.years);
   paintYear();
   refreshRankings();
@@ -411,6 +415,7 @@ function buildList() {
   const q = search.value.trim().toLowerCase();
   const groups = [
     ['What countries say', topics.map((t) => layers[t.id])],
+    ['Who spoke', [layers.speaker]],
     ['What the numbers show', indicators.map((i) => layers[i.id])],
   ];
   const nodes = [];
@@ -468,6 +473,7 @@ layerButton.addEventListener('click', () => {
 });
 
 async function setLayer(id) {
+  if (layers[id].kind === 'topic') state.lastTopic = id;
   if (!applyingStory) endStory();
   state.layer = id;
   layerLabel.textContent = layers[id].label;
@@ -699,7 +705,9 @@ function closeCountry() {
 function refreshCard() {
   const layer = layers[state.layer];
   if (!state.country || !layer.ready) return;
-  const focus = pairOf(layers, layer);
+  const focus = pairOf(layers, layer, state.lastTopic);
+  // The card names who gave the speech; that list loads the first time it's needed.
+  if (!layers.speaker.ready) layers.speaker.load().then(refreshCard);
   if (focus.indicator && !focus.indicator.ready) focus.indicator.load().then(refreshCard);
   renderCard(card, {
     iso: state.country,
@@ -711,6 +719,7 @@ function refreshCard() {
     nameOf,
     focus,
     showDetails: state.details,
+    speaker: layers.speaker.speaker(state.country, state.year),
     profileUrl: `country/${slugOf(nameOf(state.country, 9999))}/`,
     onToggleDetails: () => {
       state.details = !state.details;
