@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Who said it? · Daily UN puzzle · Atlas Meridian</title>
+    <meta name="description" content="Five real quotes from 80 years of UN speeches. Guess which country said each one. A new puzzle every day." />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://amitharwal.github.io/atlas-meridian/daily/" />
+    <meta property="og:title" content="Who said it? · Daily UN puzzle" />
+    <meta property="og:description" content="Five real quotes from 80 years of UN speeches. Guess which country said each one." />
+    <meta property="og:image" content="https://amitharwal.github.io/atlas-meridian/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="preload" href="../data/daily.json" as="fetch" crossorigin />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="../">Atlas Meridian</a>
+      <a class="back" href="../">Back to the map</a>
+    </header>
+    <main id="app" class="app" aria-live="polite">
+      <p class="muted">Loading today's puzzle…</p>
+    </main>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <script type="module" src="/src/daily.js"></script>
+  </body>
+</html>

@@ -1,0 +1,261 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--select);
+  outline-offset: 2px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 18px 20px 0;
+}
+
+.brand {
+  color: var(--text);
+  font: 600 18px 'Source Serif 4', Georgia, serif;
+  text-decoration: none;
+}
+
+.back {
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 20px 48px;
+}
+
+.kicker {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font: 600 clamp(32px, 7vw, 44px) / 1.1 'Source Serif 4', Georgia, serif;
+}
+
+.lede {
+  margin: 0 0 22px;
+  color: var(--text-soft);
+  font-size: 17px;
+}
+
+.muted {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.primary,
+.secondary {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: var(--strong);
+  color: var(--on-strong);
+}
+
+.secondary {
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+}
+
+.progress {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.progress li {
+  width: 28px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.progress li.current {
+  background: var(--text-muted);
+}
+
+.progress li.right {
+  background: var(--bar);
+}
+
+.progress li.wrong {
+  background: var(--target);
+}
+
+.quote {
+  margin: 0 0 22px;
+}
+
+.quote blockquote {
+  margin: 0;
+  font: 21px/1.5 'Source Serif 4', Georgia, serif;
+}
+
+.quote figcaption {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: left;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.option:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.option:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Right and wrong answers differ by symbol as well as colour. */
+.option.is-right {
+  border: 2px solid var(--bar);
+  opacity: 1;
+}
+
+.option.is-wrong {
+  border: 2px solid var(--target);
+  opacity: 1;
+}
+
+.mark {
+  font-size: 18px;
+}
+
+.reveal {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.verdict {
+  margin: 0;
+  font: 600 20px 'Source Serif 4', Georgia, serif;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.link {
+  color: var(--text-soft);
+}
+
+.squares {
+  margin: 0 0 6px;
+  font-size: 26px;
+  letter-spacing: 2px;
+}
+
+.recap {
+  margin: 28px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.recap li {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.recap a {
+  color: var(--text-soft);
+}
+
+.ok {
+  color: var(--bar);
+  font-weight: 600;
+}
+
+.miss {
+  color: var(--target);
+  font-weight: 600;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  background: var(--strong);
+  color: var(--on-strong);
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .options {
+    grid-template-columns: 1fr;
+  }
+
+  .quote blockquote {
+    font-size: 19px;
+  }
+}

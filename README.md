@@ -13,6 +13,8 @@ its CO₂ emissions, foreign debt or women in parliament.
   hard to spot on a map.
 - Start from one of six short **stories**: the end of empire, the nuclear age, the fall of
   the Berlin Wall, 9/11, the rise of climate talk, and Fiji's climate diplomacy.
+- Play the daily **"Who said it?"** puzzle (`/daily/`): five real quotes, guess the country.
+- See **who talks about whom**: pick a country and the map shows how often every other country names it.
 - Every country has its own **profile page** (e.g. `/country/fiji/`) with its main topics, who
   it sounded like in each decade, quotes, and World Bank figures. Find any country by name,
   including former names like "Soviet Union".
@@ -32,9 +34,12 @@ It's a free, open-source static website: no accounts, no tracking, no server.
    It measures talking about the same things, not friendship.
 3. **Indicators.** `pipeline/build_indicators.py` downloads eight World Bank series. A GitHub
    Action refreshes them monthly and redeploys the site.
-4. **Country profiles** are static pages generated at build time by `pipeline/build_profiles.mjs`
+4. **Extra data** from the speeches: `pipeline/build_speakers.py` (who gave each speech) and
+   `pipeline/build_mentions.py` (which countries each speech names). The puzzle's quote pool is
+   built by `pipeline/build_daily.mjs` at publish time.
+5. **Country profiles** are static pages generated at build time by `pipeline/build_profiles.mjs`
    (`npm run build` runs it after Vite), along with `sitemap.xml` for search engines.
-5. **The site** (`index.html`, `src/`) is plain JavaScript built with Vite, with the map
+6. **The site** (`index.html`, `src/`) is plain JavaScript built with Vite, with the map
    drawn by [MapLibre GL](https://maplibre.org/). All data is pre-computed JSON in `public/data/`.
 
 ### Accuracy
