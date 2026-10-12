@@ -24,6 +24,45 @@
   --strong: #1c1c1a;
   --on-strong: #ffffff;
   --bar: #2f6194;
+  --halo: #ffffff;
+  color-scheme: light;
+}
+
+/* Night version, used automatically when the visitor's device is in dark mode.
+   On a dark background, higher values get lighter so they stand out. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121417;
+    --ocean: #171a1e;
+    --land: #262a30;
+    --hatch: #31363d;
+    --border: #121417;
+    --ramp-0: #2a3b4d;
+    --ramp-1: #3a5f80;
+    --ramp-2: #5a8bb5;
+    --ramp-3: #8fb8db;
+    --ramp-4: #d4e6f5;
+    --select: #ffffff;
+    --text: #e8eaed;
+    --text-soft: #c3c8cf;
+    --text-muted: #9097a1;
+    --surface: rgba(28, 31, 36, 0.94);
+    --surface-sunk: #1b1e22;
+    --surface-hover: #2a2e34;
+    --line: #30353c;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --strong: #e8eaed;
+    --on-strong: #121417;
+    --bar: #8fb8db;
+    --halo: #000000;
+    color-scheme: dark;
+  }
+
+  /* MapLibre's zoom and info buttons are drawn dark; flip them to light. */
+  .maplibregl-ctrl button .maplibregl-ctrl-icon,
+  .maplibregl-ctrl-attrib-button {
+    filter: invert(1);
+  }
 }
 
 :root {
@@ -202,6 +241,37 @@ button {
   background: var(--surface-hover);
 }
 
+.find {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+}
+
+.find input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font: 14px var(--font-body);
+}
+
+.find input::placeholder,
+.search input::placeholder {
+  color: var(--text-muted);
+}
+
+.find:focus-within {
+  outline: 2px solid var(--select);
+  outline-offset: -2px;
+}
+
 /* ---- Pop-overs: topic list, rankings, country card ---- */
 
 .popover {
@@ -356,6 +426,38 @@ button {
 .rank-value {
   color: var(--text-soft);
   font-variant-numeric: tabular-nums;
+}
+
+.find-results {
+  position: static;
+  width: 300px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+.find-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.find-option[aria-selected='true'],
+.find-option:hover {
+  background: var(--surface-hover);
+}
+
+.find-alt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.find-empty {
+  padding: 8px 10px;
+  color: var(--text-muted);
 }
 
 /* ---- Stories ---- */
@@ -1182,8 +1284,9 @@ button {
   }
 
   /* On phones the country card takes the bottom, so the story caption sits at the top. */
+  /* Below both the top-left panel and the column of icons on the right. */
   .story-bar {
-    top: 150px;
+    top: 204px;
     bottom: auto;
     left: 10px;
     width: auto;
@@ -1197,7 +1300,7 @@ button {
 
   /* With a story caption at the top, keep the country card short below it. */
   body.has-story .country-card {
-    max-height: 34vh;
+    max-height: 30vh;
   }
 
   .hint {
