@@ -49,13 +49,22 @@ def main():
     with urllib.request.urlopen(SOURCE_URL) as response:
         source = json.load(response)
 
+    # A few territories share their country's ISO code (Ashmore and Cartier
+    # Islands use Australia's). Codes must be unique, or the map mixes up names
+    # and shapes, so the country itself keeps the code and territories use
+    # their own Natural Earth code instead.
+    codes = [country_code(f["properties"]) for f in source["features"]]
+    shared = {c for c in codes if codes.count(c) > 1}
+
     features = []
-    for feature in source["features"]:
+    for feature, code in zip(source["features"], codes):
         props = feature["properties"]
+        if code in shared and props["ADM0_A3"] != code:
+            code = props["ADM0_A3"]
         features.append({
             "type": "Feature",
             "properties": {
-                "iso3": country_code(props),
+                "iso3": code,
                 "name": NAME_FIXES.get(props["NAME_EN"], props["NAME_EN"] or props["NAME"]),
                 "continent": props["CONTINENT"],
             },
