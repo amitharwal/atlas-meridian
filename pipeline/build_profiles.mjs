@@ -5,7 +5,7 @@
 //
 // Runs after `vite build` (see package.json), reading the data in dist/data
 // and writing into dist/.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { linePath } from '../src/chart.js';
 import { makeNamer, slugOf } from '../src/data.js';
 
@@ -230,6 +230,29 @@ ${chart(series, ind.world, `${name}'s ${ind.label} over time, against the world 
     .filter(Boolean)
     .join('\n');
 
+  // Who talks about it: the year the most countries named it, and who named it most.
+  let attention = '';
+  if (existsSync(`${DIST}/data/mentions/${iso}.json`)) {
+    const mentions = read(`mentions/${iso}.json`);
+    const perYear = Object.entries(mentions).map(([y, bySpeaker]) => [Number(y), Object.keys(bySpeaker).length]);
+    const peak = perYear.sort((a, b) => b[1] - a[1])[0];
+    const totals = {};
+    for (const bySpeaker of Object.values(mentions)) {
+      for (const [code, n] of Object.entries(bySpeaker)) totals[code] = (totals[code] ?? 0) + n;
+    }
+    const top = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (peak && peak[1] >= 5) {
+      const series = Object.fromEntries(perYear.map(([y, n]) => [y, n]));
+      attention = `<section><h2>Who talks about ${escape(name)}</h2>
+<p class="note">How many countries named ${escape(name)} in their speech each year. The most: ${peak[1]} countries in ${peak[0]}.</p>
+${chart(series, {}, `Number of countries naming ${name} each year`)}
+<p class="note" style="margin-top:12px">Named it most often, ${first}–${last}: ${top
+        .map(([code, n]) => `${slug[code] ? `<a href="../${slug[code]}/">${escape(todayName(code))}</a>` : escape(todayName(code))} (${n})`)
+        .join(', ')}.</p>
+<p><a href="../../#layer=mentions&target=${iso}&year=${peak[0]}">See who mentions ${escape(name)} on the map</a></p></section>`;
+    }
+  }
+
   const continent = continentOf[iso];
   const description = `What ${name} has said at the UN General Debate since ${first}: its main topics, the countries it sounds like, and quotes, next to World Bank figures.`;
   const body = `
@@ -255,6 +278,8 @@ ${decades.length ? `<section><h2>Who it sounded like</h2>
 <ul class="decades">${decades.join('\n')}</ul></section>` : ''}
 
 ${quotes ? `<section><h2>In its own words</h2>${quotes}</section>` : ''}
+
+${attention}
 
 ${numbers ? `<section><h2>The numbers</h2>
 <p class="note">Latest World Bank figure, against the median country (dashed).</p>

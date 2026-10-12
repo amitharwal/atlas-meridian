@@ -43,7 +43,7 @@ function closeButton(label, onclick) {
 
 // ---- Top 10 ---------------------------------------------------------------
 
-export function renderRankings(container, { layer, year, rows, nameOf, onCountry }) {
+export function renderRankings(container, { layer, year, rows, title, nameOf, onCountry }) {
   // For the speaker layer a top-10 makes no sense; count who spoke instead.
   if (layer.kind === 'speaker') {
     const counts = [0, 0, 0, 0];
@@ -70,7 +70,7 @@ export function renderRankings(container, { layer, year, rows, nameOf, onCountry
   }
   const top = rows.slice(0, 10);
   container.replaceChildren(
-    h('p', { class: 'popover-title' }, `Highest · ${year}`),
+    h('p', { class: 'popover-title' }, title ?? `Highest · ${year}`),
     top.length
       ? h(
           'ol',
@@ -116,8 +116,24 @@ export function renderCard(container, ctx) {
   ];
 
   // The two headline numbers: what they said, and what the numbers show.
+  // In "who talks about whom" they're about mentions instead.
   const metrics = [];
-  if (byYear) {
+  const m = ctx.mentions;
+  if (m && iso === m.target) {
+    metrics.push(
+      h('div', {}, h('div', { class: 'metric-value' }, String(m.mentioners)), h('div', { class: 'metric-label' }, `countries named ${name} in ${year}`)),
+    );
+  } else if (m) {
+    metrics.push(
+      h(
+        'div',
+        {},
+        h('div', { class: 'metric-value' }, m.count === null ? '—' : String(m.count)),
+        h('div', { class: 'metric-label' }, m.count === null ? `No speech in ${year}` : `mention${m.count === 1 ? '' : 's'} of ${m.targetName}`),
+      ),
+      h('div', {}, h('div', { class: 'metric-value' }, String(m.mentioners)), h('div', { class: 'metric-label' }, `countries named ${m.targetName}`)),
+    );
+  } else if (byYear) {
     const now = topic.value(iso, year);
     metrics.push(
       h(
@@ -129,7 +145,7 @@ export function renderCard(container, ctx) {
       ),
     );
   }
-  if (indicator) {
+  if (indicator && !m) {
     const now = indicator.ready ? indicator.value(iso, year) : null;
     metrics.push(
       h(
@@ -172,6 +188,12 @@ export function renderCard(container, ctx) {
         showDetails ? 'Less' : 'Details',
         h('span', { 'aria-hidden': 'true' }, showDetails ? '↑' : '↓'),
       ),
+    );
+  }
+  // Who mentions this country? Switches the map to that view.
+  if (!m || m.target !== iso) {
+    actions.push(
+      h('button', { type: 'button', class: 'details-toggle', onclick: () => ctx.onMentions(iso) }, `Who mentions ${todayName}?`),
     );
   }
   // Every country that has spoken at the UN has its own profile page.

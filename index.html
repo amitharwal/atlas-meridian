@@ -47,6 +47,7 @@
           <span class="legend-ramp" aria-hidden="true"></span>
           <span id="legend-max"></span>
           <span class="legend-none"><span class="hatch" aria-hidden="true"></span>No data</span>
+          <span id="legend-target" class="legend-none" hidden><span class="target-swatch" aria-hidden="true"></span><span id="legend-target-name"></span></span>
         </div>
         <div class="find">
           <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
@@ -159,6 +160,13 @@
         the map shows the most recent one from up to two years earlier and says so. Foreign debt
         is only reported for low- and middle-income countries, and some places, such as Taiwan,
         aren't covered by the World Bank.</p>
+
+      <h3>Who spoke, and who talks about whom</h3>
+      <p>Speakers' names come from the corpus. Their titles are recorded consistently from 1990, and are
+        grouped into four ranks (head of state or government, deputy leader, foreign minister, other).</p>
+      <p>"Who mentions…" counts how many times each speech names a country, including UN formal names
+        and former names (Zaire, Kampuchea). It counts names, not adjectives ("Israel", not "Israeli"),
+        and skips names that could mean two countries, such as "Congo" or "Korea" on their own.</p>
 
       <h3>How accurate is it?</h3>
       <p>When checked against hand-sorted passages, the model agrees about <strong>71%</strong>
