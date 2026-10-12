@@ -31,6 +31,14 @@ def country_code(props):
     return None
 
 
+# Natural Earth's English names are mostly the familiar short forms; these are
+# the exceptions, swapped for the plainer everyday name.
+NAME_FIXES = {
+    "People's Republic of China": "China",
+    "Turkish Republic of Northern Cyprus": "Northern Cyprus",
+}
+
+
 def round_coords(value):
     if isinstance(value, (int, float)):
         return round(value, PRECISION)
@@ -48,7 +56,7 @@ def main():
             "type": "Feature",
             "properties": {
                 "iso3": country_code(props),
-                "name": props["NAME"],
+                "name": NAME_FIXES.get(props["NAME_EN"], props["NAME_EN"] or props["NAME"]),
                 "continent": props["CONTINENT"],
             },
             "geometry": {
