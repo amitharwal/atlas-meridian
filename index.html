@@ -16,13 +16,13 @@
     </header>
 
     <section class="controls card" aria-label="Map settings">
-      <label class="controls-label" for="topic">Colour the map by topic</label>
-      <select id="topic"></select>
+      <label class="controls-label" for="layer">Colour the map by</label>
+      <select id="layer"></select>
       <div class="legend">
         <div class="legend-ramp"></div>
-        <div class="legend-scale"><span>0%</span><span id="legend-max"></span></div>
-        <p class="legend-note">Share of each country's speech spent on this topic.
-          <span class="legend-none"></span> No speech that year.</p>
+        <div id="legend-scale" class="legend-scale"></div>
+        <p class="legend-note"><span id="legend-text"></span>
+          <span class="legend-none"></span> No data that year.</p>
         <p class="legend-note">Click any country to see what it said.</p>
       </div>
       <button id="about-open" class="link-button" type="button">About this data</button>
@@ -62,6 +62,17 @@
         <em>talking about the same things</em>, not friendship: in 1985 the USA's closest match
         was the Soviet Union, because both spoke mostly about each other and about arms control.</p>
 
+      <h3>What the numbers show</h3>
+      <p>Eight World Bank measures sit alongside the speeches, each paired with a speech topic,
+        so you can compare what a country says with what the numbers show: GDP per person
+        (development), CO₂ emissions per person (climate), life expectancy (health), women in
+        parliament (gender), internet users (technology), foreign debt (debt), trade (trade) and
+        undernourishment (food). They are updated automatically each month.</p>
+      <p>Official figures often arrive a year or two late. Where the chosen year has no figure yet,
+        the map shows the most recent one from up to two years earlier and says so. Foreign debt
+        is only reported for low- and middle-income countries, and some places, such as Taiwan,
+        aren't covered by the World Bank.</p>
+
       <h3>How accurate is it?</h3>
       <p>When checked against hand-sorted passages, the model agrees about <strong>71%</strong>
         of the time. It's strongest on peace, democracy, development and gender, and weakest on
@@ -86,6 +97,10 @@
         <li>Speeches: <a href="https://doi.org/10.7910/DVN/0TJX8Y" target="_blank" rel="noopener">UN General Debate Corpus</a>
           (CC0). Jankin, Baturo &amp; Dasandi (2025), <em>Journal of Peace Research</em> 62(4);
           Baturo, Dasandi &amp; Mikhaylov (2017), <em>Research &amp; Politics</em>.</li>
+        <li>Indicators: <a href="https://data.worldbank.org/" target="_blank" rel="noopener">World Bank Open Data</a>
+          (CC BY 4.0), drawing on the UN, EDGAR, the Inter-Parliamentary Union, the ITU and the FAO.
+          Military spending is not included because its source (SIPRI) does not allow republishing
+          the full data set.</li>
         <li>Borders: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a> (public domain).</li>
         <li>Topic model: <a href="https://huggingface.co/BAAI/bge-small-en-v1.5" target="_blank" rel="noopener">bge-small-en-v1.5</a> by BAAI.</li>
       </ul>

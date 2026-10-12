@@ -1,5 +1,5 @@
 // The side panel describing one country in one year.
-import { topicChart } from './chart.js';
+import { lineChart } from './chart.js';
 
 // Tiny element builder; text always goes in as text, never as HTML.
 function h(tag, attrs = {}, ...children) {
@@ -45,10 +45,20 @@ function topicBars({ shares, topics, topic, onTopic }) {
   );
 }
 
+function chartKey(countryName, worldLabel, hint) {
+  return h(
+    'p',
+    { class: 'chart-key' },
+    h('span', { class: 'key-country' }), countryName,
+    h('span', { class: 'key-world' }), worldLabel,
+    hint ? h('span', { class: 'chart-key-hint' }, hint) : null,
+  );
+}
+
+// `focus` is the speech topic and World Bank indicator that go together
+// (e.g. climate and CO₂), whichever of the two the map is coloured by.
 export function renderPanel(container, ctx) {
-  const { iso, year, topic, topics, speeches, detail, continent, nameOf, worldSeries } = ctx;
-  const topicIndex = topics.findIndex((t) => t.id === topic);
-  const topicLabel = topics[topicIndex].label;
+  const { iso, year, topics, speeches, detail, continent, nameOf, focus } = ctx;
   const byYear = speeches.shares[iso];
   const shares = byYear?.[year];
   const name = nameOf(iso, year);
@@ -62,40 +72,73 @@ export function renderPanel(container, ctx) {
     body.push(h('p', { class: 'panel-note' }, `This UN seat is now held by ${todayName}.`));
   }
 
+  // ---- What they said ----
   if (!byYear) {
     body.push(h('p', { class: 'panel-empty' }, 'There are no General Debate speeches for this place in the dataset.'));
-    container.replaceChildren(...body);
-    return;
-  }
-
-  if (shares) {
-    const ceremonial = 1000 - shares.reduce((a, b) => a + b, 0);
-    body.push(
-      h('h3', {}, `What they talked about in ${year}`),
-      topicBars({ shares, topics, topic, onTopic: ctx.onTopic }),
-      h('p', { class: 'panel-hint' }, `The other ${pct(ceremonial)} was ceremonial or didn't fit a topic.`),
-    );
   } else {
-    body.push(h('p', { class: 'panel-empty' }, `No speech on record for ${year}.`));
+    if (shares) {
+      const ceremonial = 1000 - shares.reduce((a, b) => a + b, 0);
+      body.push(
+        h('h3', {}, `What they talked about in ${year}`),
+        topicBars({ shares, topics, topic: focus.topic.id, onTopic: ctx.onLayer }),
+        h('p', { class: 'panel-hint' }, `The other ${pct(ceremonial)} was ceremonial or didn't fit a topic.`),
+      );
+    } else {
+      body.push(h('p', { class: 'panel-empty' }, `No speech on record for ${year}.`));
+    }
+
+    const country = {};
+    for (const [yr, values] of Object.entries(byYear)) country[yr] = focus.topic.value(iso, yr).value;
+    body.push(
+      h('h3', {}, `Says: ${focus.topic.label}`),
+      lineChart({
+        country, world: focus.topic.world, years: speeches.years, year,
+        format: focus.topic.format, minTop: 5, onPickYear: ctx.onYear,
+      }),
+      chartKey(todayName, focus.topic.worldLabel, 'Share of speech. Click a chart to change year.'),
+    );
   }
 
-  // The chart: this country vs. the world on the current topic, every year.
-  const country = {};
-  for (const [yr, values] of Object.entries(byYear)) country[yr] = values[topicIndex] / 10;
-  body.push(
-    h('h3', {}, `${topicLabel} over time`),
-    topicChart({ country, world: worldSeries, years: speeches.years, year, onPickYear: ctx.onYear }),
-    h(
-      'p',
-      { class: 'chart-key' },
-      h('span', { class: 'key-country' }), name === todayName ? name : todayName,
-      h('span', { class: 'key-world' }), 'World average',
-      h('span', { class: 'chart-key-hint' }, 'Click the chart to change year'),
-    ),
-  );
+  // ---- What the numbers show ----
+  const indicator = focus.indicator;
+  if (indicator) {
+    body.push(h('h3', {}, `Numbers: ${indicator.label}`));
+    const series = indicator.ready ? indicator.series(iso) : null;
+    if (!indicator.ready) {
+      body.push(h('p', { class: 'panel-hint' }, 'Loading…'));
+    } else if (!Object.keys(series).length) {
+      body.push(h('p', { class: 'panel-empty' }, `The World Bank has no figures on this for ${todayName}.`));
+    } else {
+      const now = indicator.value(iso, year);
+      body.push(
+        h(
+          'p',
+          { class: 'figure' },
+          now ? h('strong', {}, indicator.format(now.value)) : null,
+          now
+            ? ` in ${now.year}${now.year !== year ? ' (latest figure)' : ''}`
+            : `No figure for ${year}`,
+        ),
+        lineChart({
+          country: series, world: indicator.world, years: speeches.years, year,
+          format: indicator.format, onPickYear: ctx.onYear,
+        }),
+        chartKey(todayName, indicator.worldLabel),
+      );
+    }
+    body.push(
+      h(
+        'p',
+        { class: 'panel-hint' },
+        `Source: ${indicator.source}, via the World Bank.`,
+        indicator.note ? ` ${indicator.note}` : null,
+      ),
+    );
+  }
 
+  // ---- Who they sound like, and quotes ----
   const thisYear = detail?.years[year];
-  if (detail === null) {
+  if (byYear && detail === null) {
     body.push(h('p', { class: 'panel-hint' }, 'Loading quotes…'));
   } else if (thisYear) {
     if (thisYear.allies.length) {
