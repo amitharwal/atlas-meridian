@@ -7,7 +7,7 @@
     <title>Atlas Meridian</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   </head>
   <body>
     <header class="masthead">
@@ -15,16 +15,82 @@
       <p>What the world says at the United Nations</p>
     </header>
 
+    <section class="controls card" aria-label="Map settings">
+      <label class="controls-label" for="topic">Colour the map by topic</label>
+      <select id="topic"></select>
+      <div class="legend">
+        <div class="legend-ramp"></div>
+        <div class="legend-scale"><span>0%</span><span id="legend-max"></span></div>
+        <p class="legend-note">Share of each country's speech spent on this topic.
+          <span class="legend-none"></span> No speech that year.</p>
+        <p class="legend-note">Click any country to see what it said.</p>
+      </div>
+      <button id="about-open" class="link-button" type="button">About this data</button>
+    </section>
+
     <div id="map" aria-label="Interactive globe of the world's countries"></div>
 
     <div id="tooltip" class="tooltip" hidden></div>
 
-    <aside id="panel" class="panel" hidden>
+    <aside id="panel" class="panel card" hidden>
       <button id="panel-close" class="panel-close" aria-label="Close panel">&times;</button>
-      <p id="panel-continent" class="panel-kicker"></p>
-      <h2 id="panel-name"></h2>
-      <p class="panel-placeholder">Speech topics and data for this country will appear here.</p>
+      <div id="panel-body"></div>
     </aside>
+
+    <section class="timeline card" aria-label="Year">
+      <button id="play" class="play" type="button" aria-label="Play through the years">▶</button>
+      <div class="timeline-track">
+        <input id="year" type="range" min="1946" max="2025" step="1" aria-label="Year" />
+        <div class="timeline-ends"><span id="year-min"></span><span id="year-max"></span></div>
+      </div>
+      <output id="year-label" class="year-label" for="year"></output>
+    </section>
+
+    <dialog id="about" class="about card">
+      <button id="about-close" class="panel-close" aria-label="Close">&times;</button>
+      <h2>About this data</h2>
+      <p>Every September, each UN member gives a speech at the General Assembly's General Debate.
+        Atlas Meridian reads every one of them, from 1946 to 2025 (over 11,000 speeches), and
+        maps what each country chose to talk about.</p>
+
+      <h3>How it works</h3>
+      <p>Each speech is split into short passages of about 60 words. A small language model
+        sorts each passage into one of 16 topics, or into none if it's ceremonial (thanking the
+        President, and so on). A country's share for a topic is the percentage of its passages
+        sorted into that topic.</p>
+      <p>"Speaks most like" compares the overall wording of speeches in the same year. It measures
+        <em>talking about the same things</em>, not friendship: in 1985 the USA's closest match
+        was the Soviet Union, because both spoke mostly about each other and about arms control.</p>
+
+      <h3>How accurate is it?</h3>
+      <p>When checked against hand-sorted passages, the model agrees about <strong>71%</strong>
+        of the time. It's strongest on peace, democracy, development and gender, and weakest on
+        terrorism, debt and food. Treat single numbers as rough and trends as more reliable.
+        The hand-sorted passages used to train and test it were labelled by an AI assistant
+        (Claude), not by human experts.</p>
+
+      <h3>Things to know</h3>
+      <ul>
+        <li>Speeches before 1992 by the Soviet Union appear on Russia, which took over its UN seat.
+          Countries that no longer exist without a successor seat (Yugoslavia, Czechoslovakia,
+          East Germany, South Yemen) have no shape on the map, but you'll still find them in
+          "Speaks most like".</li>
+        <li>Speeches given in other languages are official UN English translations.
+          The 2024 speeches were translated by an AI model (GPT-4o), and the 2025 speeches were
+          transcribed from video by an AI model (Whisper), so they may contain small errors.</li>
+        <li>Borders are for display only and don't imply any position on disputed territory.</li>
+      </ul>
+
+      <h3>Sources</h3>
+      <ul>
+        <li>Speeches: <a href="https://doi.org/10.7910/DVN/0TJX8Y" target="_blank" rel="noopener">UN General Debate Corpus</a>
+          (CC0). Jankin, Baturo &amp; Dasandi (2025), <em>Journal of Peace Research</em> 62(4);
+          Baturo, Dasandi &amp; Mikhaylov (2017), <em>Research &amp; Politics</em>.</li>
+        <li>Borders: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a> (public domain).</li>
+        <li>Topic model: <a href="https://huggingface.co/BAAI/bge-small-en-v1.5" target="_blank" rel="noopener">bge-small-en-v1.5</a> by BAAI.</li>
+      </ul>
+      <p class="about-foot">Atlas Meridian is free and open source under the MIT licence.</p>
+    </dialog>
 
     <script type="module" src="/src/main.js"></script>
   </body>
