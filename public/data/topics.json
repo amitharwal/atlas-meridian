@@ -1,0 +1,66 @@
+[
+ {
+  "id": "peace",
+  "label": "Peace & conflict"
+ },
+ {
+  "id": "nuclear",
+  "label": "Nuclear weapons & disarmament"
+ },
+ {
+  "id": "terrorism",
+  "label": "Terrorism"
+ },
+ {
+  "id": "human_rights",
+  "label": "Human rights"
+ },
+ {
+  "id": "democracy",
+  "label": "Democracy & governance"
+ },
+ {
+  "id": "climate",
+  "label": "Climate change & environment"
+ },
+ {
+  "id": "development",
+  "label": "Development & poverty"
+ },
+ {
+  "id": "trade",
+  "label": "Trade & the global economy"
+ },
+ {
+  "id": "debt",
+  "label": "Debt & finance"
+ },
+ {
+  "id": "decolonisation",
+  "label": "Decolonisation & self-determination"
+ },
+ {
+  "id": "un_reform",
+  "label": "UN reform"
+ },
+ {
+  "id": "health",
+  "label": "Health & pandemics"
+ },
+ {
+  "id": "migration",
+  "label": "Migration & refugees"
+ },
+ {
+  "id": "food_water",
+  "label": "Food & water security"
+ },
+ {
+  "id": "gender",
+  "label": "Gender equality"
+ },
+ {
+  "id": "technology",
+  "label": "Technology & cyber"
+ }
+]

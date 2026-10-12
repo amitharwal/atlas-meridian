@@ -1,0 +1,7 @@
+# Python packages for the data pipeline. Install with:
+#   python3 -m venv .venv && .venv/bin/pip install -r pipeline/requirements.txt
+certifi==2026.7.22
+numpy==2.4.6
+scikit-learn==1.9.1
+sentence-transformers==6.1.0
+torch==2.14.1
