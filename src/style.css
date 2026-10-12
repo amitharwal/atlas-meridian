@@ -175,6 +175,23 @@ button {
   background: var(--surface-hover);
 }
 
+.text-control {
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.text-control:hover,
+.text-control[aria-expanded='true'] {
+  background: var(--surface-hover);
+}
+
 /* ---- Pop-overs: topic list, rankings, country card ---- */
 
 .popover {
@@ -329,6 +346,111 @@ button {
 .rank-value {
   color: var(--text-soft);
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- Stories ---- */
+
+.stories {
+  top: 64px;
+  right: 16px;
+  width: 300px;
+  padding: 14px 8px 8px;
+}
+
+.story-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.story-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.story-item:hover {
+  background: var(--surface-hover);
+}
+
+.story-year {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-bar {
+  left: 50%;
+  bottom: 78px;
+  width: min(760px, calc(100vw - 32px));
+  padding: 8px 16px 12px;
+  transform: translateX(-50%);
+}
+
+.story-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.story-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.story-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.story-text {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.story-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.story-nav .close {
+  margin: 0 -6px 0 4px;
+}
+
+.story-step {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.story-step:hover {
+  background: var(--surface-hover);
+}
+
+.story-step:disabled {
+  color: var(--text-muted);
+  opacity: 0.5;
+  cursor: default;
+  background: none;
 }
 
 /* ---- Country card ---- */
@@ -914,7 +1036,7 @@ button {
   .hud-left {
     top: 10px;
     left: 10px;
-    right: 60px;
+    right: 96px;
     max-width: none;
   }
 
@@ -922,6 +1044,7 @@ button {
     top: 10px;
     right: 10px;
     flex-direction: column;
+    align-items: flex-end;
   }
 
   .brand {
@@ -940,7 +1063,27 @@ button {
     flex: 1;
   }
 
+  /* On phones the country card takes the bottom, so the story caption sits at the top. */
+  .story-bar {
+    top: 150px;
+    bottom: auto;
+    left: 10px;
+    width: auto;
+    right: 10px;
+    transform: none;
+  }
+
+  .story-text {
+    font-size: 13px;
+  }
+
+  /* With a story caption at the top, keep the country card short below it. */
+  body.has-story .country-card {
+    max-height: 34vh;
+  }
+
   .rankings,
+  .stories,
   .country-card {
     top: auto;
     left: 10px;

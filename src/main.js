@@ -5,6 +5,7 @@ import { drawSparkline } from './chart.js';
 import { loadJson, makeNamer, shapeInfo } from './data.js';
 import { makeLayers, pairOf, ranking } from './layers.js';
 import { renderCard, renderRankings } from './panel.js';
+import { STORIES } from './stories.js';
 import './style.css';
 
 // MapLibre 6 needs to be told where its background worker lives when bundled by Vite.
@@ -47,13 +48,15 @@ const phone = matchMedia('(max-width: 640px)');
 
 // What's on screen. Kept in the address bar so any view can be shared as a link.
 // Climate is the opening view: it changes the most visibly over time.
-const state = { layer: 'climate', year: LAST_YEAR, country: null, details: false };
+const state = { layer: 'climate', year: LAST_YEAR, country: null, details: false, story: null };
 const params = new URLSearchParams(location.hash.slice(1));
 if (layers[params.get('layer')]) state.layer = params.get('layer');
 if (+params.get('year') >= FIRST_YEAR && +params.get('year') <= LAST_YEAR) state.year = +params.get('year');
 if (speeches.shares[params.get('country')] || centreOf[params.get('country')]) state.country = params.get('country');
 
 function saveToUrl() {
+  // A story link is just the story; everything else follows from it.
+  if (state.story !== null) return history.replaceState(null, '', `#story=${STORIES[state.story].id}`);
   const p = new URLSearchParams({ layer: state.layer, year: state.year });
   if (state.country) p.set('country', state.country);
   history.replaceState(null, '', `#${p}`);
@@ -243,7 +246,9 @@ mapReady.then(async () => {
   );
   await layers[state.layer].load?.();
   paintLayer();
-  if (state.country) selectCountry(state.country);
+  const story = STORIES.findIndex((st) => st.id === params.get('story'));
+  if (story >= 0) openStory(story);
+  else if (state.country) selectCountry(state.country);
 });
 
 // ---- Pop-overs: only one open at a time -----------------------------------
@@ -253,8 +258,14 @@ const layerButton = document.getElementById('layer-button');
 const rankings = document.getElementById('rankings');
 const rankButton = document.getElementById('rank-button');
 const card = document.getElementById('card');
+const storiesBox = document.getElementById('stories');
+const storiesButton = document.getElementById('stories-button');
 
 function closePopovers(except) {
+  if (except !== storiesBox) {
+    storiesBox.hidden = true;
+    storiesButton.setAttribute('aria-expanded', 'false');
+  }
   if (except !== picker) {
     picker.hidden = true;
     layerButton.setAttribute('aria-expanded', 'false');
@@ -337,6 +348,7 @@ layerButton.addEventListener('click', () => {
 });
 
 async function setLayer(id) {
+  if (!applyingStory) endStory();
   state.layer = id;
   layerLabel.textContent = layers[id].label;
   saveToUrl();
@@ -413,6 +425,7 @@ function showYear() {
 }
 
 function setYear(year) {
+  if (!applyingStory) endStory();
   state.year = year;
   showYear();
   if (state.country) label.textContent = nameOf(state.country, year);
@@ -524,6 +537,7 @@ function spotlight(iso) {
 }
 
 function selectCountry(iso) {
+  if (!applyingStory) endStory();
   setState(state.country, { selected: false });
   state.country = iso;
   setState(iso, { selected: true });
@@ -553,6 +567,7 @@ function selectCountry(iso) {
 }
 
 function closeCountry() {
+  if (!applyingStory) endStory();
   setState(state.country, { selected: false });
   state.country = null;
   spotlight(null);
@@ -591,9 +606,89 @@ function refreshCard() {
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || about.open) return;
-  if (!picker.hidden || !rankings.hidden) closePopovers();
+  if (!picker.hidden || !rankings.hidden || !storiesBox.hidden) closePopovers();
+  else if (state.story !== null) endStory();
   else if (state.country) closeCountry();
 });
+
+// ---- Stories ----------------------------------------------------------------
+
+const storyBar = document.getElementById('story-bar');
+const storyPrev = document.getElementById('story-prev');
+const storyNext = document.getElementById('story-next');
+// Set while a story is setting up the map, so those changes don't end the story.
+// Any change the reader makes themselves does end it.
+let applyingStory = false;
+
+document.getElementById('story-list').append(
+  ...STORIES.map((story, i) => {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'story-item';
+    const n = document.createElement('span');
+    n.className = 'rank-n';
+    n.textContent = i + 1;
+    const title = document.createElement('span');
+    title.textContent = story.title;
+    const year = document.createElement('span');
+    year.className = 'story-year';
+    year.textContent = story.year;
+    button.append(n, title, year);
+    button.addEventListener('click', () => {
+      closePopovers();
+      openStory(i);
+    });
+    item.append(button);
+    return item;
+  }),
+);
+
+storiesButton.addEventListener('click', () => {
+  const open = storiesBox.hidden;
+  closePopovers(storiesBox);
+  storiesBox.hidden = !open;
+  storiesButton.setAttribute('aria-expanded', String(open));
+});
+
+function openStory(i) {
+  const story = STORIES[i];
+  applyingStory = true;
+  stopPlaying();
+  state.details = Boolean(story.details);
+  setYear(story.year);
+  const layerReady = setLayer(story.layer);
+  if (story.country) {
+    selectCountry(story.country);
+  } else {
+    closeCountry();
+    map.flyTo({ ...homeView(), speed: 0.8 });
+  }
+  applyingStory = false;
+
+  state.story = i;
+  document.getElementById('story-count').textContent = `Story ${i + 1} of ${STORIES.length}`;
+  document.getElementById('story-title').textContent = story.title;
+  document.getElementById('story-text').textContent = story.text;
+  storyPrev.disabled = i === 0;
+  storyNext.disabled = i === STORIES.length - 1;
+  storyBar.hidden = false;
+  document.body.classList.add('has-story');
+  saveToUrl();
+  return layerReady;
+}
+
+function endStory() {
+  if (state.story === null) return;
+  state.story = null;
+  storyBar.hidden = true;
+  document.body.classList.remove('has-story');
+  saveToUrl();
+}
+
+storyPrev.addEventListener('click', () => openStory(state.story - 1));
+storyNext.addEventListener('click', () => openStory(state.story + 1));
+document.getElementById('story-close').addEventListener('click', endStory);
 
 // ---- About dialog -------------------------------------------------------
 

@@ -38,6 +38,7 @@
 
     <!-- Top right: rankings and about -->
     <div class="hud hud-right">
+      <button id="stories-button" class="text-control" type="button" aria-expanded="false" aria-controls="stories">Stories</button>
       <button id="rank-button" class="icon-control" type="button" aria-label="Top countries" aria-expanded="false" aria-controls="rankings" title="Top countries">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h11M4 18h6" /></svg>
       </button>
@@ -47,6 +48,27 @@
     </div>
 
     <section id="rankings" class="popover rankings" aria-label="Top countries" hidden></section>
+
+    <section id="stories" class="popover stories" aria-label="Stories" hidden>
+      <p class="popover-title">Start with a story</p>
+      <ol id="story-list" class="story-list"></ol>
+    </section>
+
+    <!-- The caption shown while a story is open -->
+    <section id="story-bar" class="popover story-bar" aria-live="polite" hidden>
+      <div class="story-head">
+        <p id="story-count" class="story-count"></p>
+        <div class="story-nav">
+          <button id="story-prev" class="story-step" type="button" aria-label="Previous story">‹ Prev</button>
+          <button id="story-next" class="story-step" type="button" aria-label="Next story">Next ›</button>
+          <button id="story-close" class="close" type="button" aria-label="Close story">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+      </div>
+      <h2 id="story-title" class="story-title"></h2>
+      <p id="story-text" class="story-text"></p>
+    </section>
 
     <aside id="card" class="popover country-card" aria-label="Country details" hidden></aside>
 
