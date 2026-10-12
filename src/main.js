@@ -6,6 +6,7 @@ import { drawSparkline } from './chart.js';
 import { loadJson, makeNamer, shapeInfo } from './data.js';
 import { makeLayers, pairOf, ranking } from './layers.js';
 import { renderCard, renderRankings } from './panel.js';
+import { makeSearch } from './search.js';
 import { STORIES } from './stories.js';
 import './style.css';
 
@@ -15,7 +16,7 @@ setWorkerUrl(workerUrl);
 // Colours live in style.css; the map reads them so there's one place to change them.
 const css = getComputedStyle(document.documentElement);
 const color = (name) => css.getPropertyValue(name).trim();
-const RAMP = [0, 1, 2, 3, 4].map((i) => color(`--ramp-${i}`));
+let RAMP = [0, 1, 2, 3, 4].map((i) => color(`--ramp-${i}`));
 
 // Moments marked on the timeline. Clicking one jumps to that year.
 const EVENTS = [
@@ -133,7 +134,7 @@ const style = {
       id: 'country-halo',
       type: 'line',
       source: 'countries',
-      paint: { 'line-color': '#ffffff', 'line-width': 6, 'line-opacity': ['case', selected, 1, 0] },
+      paint: { 'line-color': color('--halo'), 'line-width': 6, 'line-opacity': ['case', selected, 1, 0] },
     },
     {
       id: 'country-outline',
@@ -241,6 +242,22 @@ function paintLayer() {
 
 const mapReady = new Promise((resolve) => map.on('load', resolve));
 
+// Follow the device's light/dark setting while the page is open: re-read the
+// colours from style.css and repaint the map with them.
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async () => {
+  await mapReady;
+  RAMP = [0, 1, 2, 3, 4].map((i) => color(`--ramp-${i}`));
+  map.setPaintProperty('ocean', 'background-color', color('--ocean'));
+  map.setPaintProperty('country-border', 'line-color', color('--border'));
+  map.setPaintProperty('country-halo', 'line-color', color('--halo'));
+  map.setPaintProperty('country-outline', 'line-color', color('--select'));
+  map.setPaintProperty('country-dots', 'circle-stroke-color', [
+    'case', selected, color('--select'), hovered, color('--select'), color('--border'),
+  ]);
+  map.updateImage('hatch', hatchImage());
+  if (layers[state.layer].ready) paintLayer();
+});
+
 mapReady.then(async () => {
   // Start with the credits folded into the ⓘ button so they don't sit over the map.
   document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
@@ -287,7 +304,97 @@ function closePopovers(except) {
     rankings.hidden = true;
     rankButton.setAttribute('aria-expanded', 'false');
   }
+  if (except !== findResults) {
+    findResults.hidden = true;
+    findInput.setAttribute('aria-expanded', 'false');
+  }
 }
+
+// ---- Find a country ---------------------------------------------------------
+
+const findInput = document.getElementById('find');
+const findResults = document.getElementById('find-results');
+const find = makeSearch(
+  [...new Set([...Object.keys(centreOf), ...Object.keys(speeches.shares)])].filter((iso) => iso !== 'ATA'),
+  nameOf,
+);
+let findMatches = [];
+let findActive = 0;
+
+function showMatches() {
+  findMatches = find(findInput.value);
+  findActive = 0;
+  if (!findInput.value.trim()) {
+    closePopovers();
+    return;
+  }
+  closePopovers(findResults);
+  findResults.replaceChildren(
+    ...(findMatches.length
+      ? findMatches.map((match, i) => {
+          const option = document.createElement('li');
+          option.className = 'find-option';
+          option.id = `find-${match.iso}`;
+          option.setAttribute('role', 'option');
+          option.setAttribute('aria-selected', String(i === findActive));
+          const name = document.createElement('span');
+          name.textContent = match.name;
+          option.append(name);
+          if (match.former.length) {
+            const alt = document.createElement('span');
+            alt.className = 'find-alt';
+            alt.textContent = `was ${match.former.join(', ')}`;
+            option.append(alt);
+          }
+          // pointerdown, not click, so it fires before the box loses focus.
+          option.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            chooseMatch(i);
+          });
+          return option;
+        })
+      : [Object.assign(document.createElement('li'), { className: 'find-empty', textContent: 'No country by that name' })]),
+  );
+  findResults.hidden = false;
+  findInput.setAttribute('aria-expanded', 'true');
+  highlightMatch();
+}
+
+function highlightMatch() {
+  [...findResults.querySelectorAll('.find-option')].forEach((option, i) =>
+    option.setAttribute('aria-selected', String(i === findActive)),
+  );
+  const active = findMatches[findActive];
+  if (active) findInput.setAttribute('aria-activedescendant', `find-${active.iso}`);
+  else findInput.removeAttribute('aria-activedescendant');
+}
+
+function chooseMatch(i) {
+  const match = findMatches[i];
+  if (!match) return;
+  findInput.value = '';
+  findInput.blur();
+  closePopovers();
+  selectCountry(match.iso);
+}
+
+findInput.addEventListener('input', showMatches);
+findInput.addEventListener('focus', () => findInput.value.trim() && showMatches());
+findInput.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!findMatches.length) return;
+    findActive = (findActive + (e.key === 'ArrowDown' ? 1 : -1) + findMatches.length) % findMatches.length;
+    highlightMatch();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    chooseMatch(findActive);
+  } else if (e.key === 'Escape') {
+    findInput.value = '';
+    closePopovers();
+    e.stopPropagation();
+  }
+});
 
 // Clicking anywhere outside the open pop-over closes it.
 document.addEventListener('pointerdown', (e) => {

@@ -48,7 +48,13 @@
           <span id="legend-max"></span>
           <span class="legend-none"><span class="hatch" aria-hidden="true"></span>No data</span>
         </div>
+        <div class="find">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+          <input id="find" type="search" placeholder="Find a country" autocomplete="off" spellcheck="false"
+            role="combobox" aria-label="Find a country" aria-expanded="false" aria-controls="find-results" aria-autocomplete="list" />
+        </div>
       </div>
+      <ul id="find-results" class="popover find-results" role="listbox" aria-label="Matching countries" hidden></ul>
       <div id="picker" class="popover picker" hidden>
         <div class="search">
           <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
