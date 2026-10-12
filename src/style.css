@@ -681,11 +681,17 @@ button {
   overflow: hidden;
 }
 
+.card-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
 .details-toggle {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 12px;
+  text-decoration: none;
   padding: 0;
   border: 0;
   background: none;

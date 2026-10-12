@@ -3,7 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { feature } from 'topojson-client';
 import { drawSparkline } from './chart.js';
-import { loadJson, makeNamer, shapeInfo } from './data.js';
+import { loadJson, makeNamer, shapeInfo, slugOf } from './data.js';
 import { makeLayers, pairOf, ranking } from './layers.js';
 import { renderCard, renderRankings } from './panel.js';
 import { makeSearch } from './search.js';
@@ -711,6 +711,7 @@ function refreshCard() {
     nameOf,
     focus,
     showDetails: state.details,
+    profileUrl: `country/${slugOf(nameOf(state.country, 9999))}/`,
     onToggleDetails: () => {
       state.details = !state.details;
       refreshCard();

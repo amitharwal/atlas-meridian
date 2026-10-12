@@ -13,6 +13,9 @@ its CO₂ emissions, foreign debt or women in parliament.
   hard to spot on a map.
 - Start from one of six short **stories**: the end of empire, the nuclear age, the fall of
   the Berlin Wall, 9/11, the rise of climate talk, and Fiji's climate diplomacy.
+- Every country has its own **profile page** (e.g. `/country/fiji/`) with its main topics, who
+  it sounded like in each decade, quotes, and World Bank figures. Find any country by name,
+  including former names like "Soviet Union".
 - Click a country for quotes from its speech, the countries it "speaks most like", and how
   its words compare with the numbers.
 
@@ -29,7 +32,9 @@ It's a free, open-source static website: no accounts, no tracking, no server.
    It measures talking about the same things, not friendship.
 3. **Indicators.** `pipeline/build_indicators.py` downloads eight World Bank series. A GitHub
    Action refreshes them monthly and redeploys the site.
-4. **The site** (`index.html`, `src/`) is plain JavaScript built with Vite, with the map
+4. **Country profiles** are static pages generated at build time by `pipeline/build_profiles.mjs`
+   (`npm run build` runs it after Vite), along with `sitemap.xml` for search engines.
+5. **The site** (`index.html`, `src/`) is plain JavaScript built with Vite, with the map
    drawn by [MapLibre GL](https://maplibre.org/). All data is pre-computed JSON in `public/data/`.
 
 ### Accuracy

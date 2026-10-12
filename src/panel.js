@@ -138,8 +138,9 @@ export function renderCard(container, ctx) {
 
   // Everything else waits behind "Details".
   const hasMore = byYear || (indicator?.ready && Object.keys(indicator.series(iso)).length);
+  const actions = [];
   if (hasMore) {
-    parts.push(
+    actions.push(
       h(
         'button',
         { type: 'button', class: 'details-toggle', 'aria-expanded': String(showDetails), onclick: ctx.onToggleDetails },
@@ -148,6 +149,9 @@ export function renderCard(container, ctx) {
       ),
     );
   }
+  // Every country that has spoken at the UN has its own profile page.
+  if (byYear) actions.push(h('a', { class: 'details-toggle', href: ctx.profileUrl }, 'Full profile', h('span', { 'aria-hidden': 'true' }, '→')));
+  if (actions.length) parts.push(h('div', { class: 'card-actions' }, actions));
   if (showDetails && hasMore) parts.push(details(ctx, todayName, quotes, lead, labelOf));
 
   container.replaceChildren(...parts.filter(Boolean));

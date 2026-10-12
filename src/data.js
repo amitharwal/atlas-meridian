@@ -66,3 +66,14 @@ export function shapeInfo(countries) {
   }
   return { centreOf, dots: { type: 'FeatureCollection', features: dots } };
 }
+
+// The address-friendly form of a name: "Côte d'Ivoire" -> "cote-divoire".
+// Used for country profile pages, so the map and the page builder must agree.
+export const slugOf = (name) =>
+  name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
