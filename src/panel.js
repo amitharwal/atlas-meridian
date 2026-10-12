@@ -1,7 +1,5 @@
-// The side panel: a world overview when no country is chosen, or one country's
-// speech and numbers for the chosen year.
+// The small pop-overs: the top-10 list and the country card.
 import { miniChart } from './chart.js';
-import { peakYear } from './layers.js';
 
 // Tiny element builder; text always goes in as text, never as HTML.
 function h(tag, attrs = {}, ...children) {
@@ -14,108 +12,45 @@ function h(tag, attrs = {}, ...children) {
   return node;
 }
 
-const strong = (text) => h('strong', {}, text);
-const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const pct = (v) => `${v.toFixed(1)}%`;
 // Lower-case a label for use mid-sentence, unless it starts with an acronym (CO₂, UN).
 const midSentence = (text) => (/^[A-Z]{2}/.test(text) ? text : text.charAt(0).toLowerCase() + text.slice(1));
 
-// "3.6× more", "40% less" or "about the same as" — how `value` compares with `typical`.
-function comparison(value, typical) {
+// "3.6× world avg", "+40% vs world avg", "≈ world avg", "−40% vs world avg".
+function versus(value, typical, what) {
+  if (!(typical > 0)) return '';
   const ratio = value / typical;
-  if (ratio >= 1.95) return [strong(`${ratio.toFixed(1)}×`), ' the'];
-  if (ratio >= 1.1) return [strong(`${Math.round((ratio - 1) * 100)}% more`), ' than the'];
-  if (ratio > 0.9) return ['about the same as the'];
-  return [strong(`${Math.round((1 - ratio) * 100)}% less`), ' than the'];
+  if (ratio >= 1.95) return `${ratio.toFixed(1)}× ${what}`;
+  if (ratio >= 1.1) return `+${Math.round((ratio - 1) * 100)}% vs ${what}`;
+  if (ratio > 0.9) return `≈ ${what}`;
+  return `−${Math.round((1 - ratio) * 100)}% vs ${what}`;
 }
 
-// The world figure for a year, or the closest earlier one within two years
-// (official statistics lag behind, like the map itself).
+// The world figure for a year, or the closest earlier one within two years.
 function worldAt(layer, year) {
   for (let y = year; y >= year - 2; y--) {
-    if (layer.world?.[y] !== undefined) return { value: layer.world[y], year: y };
+    if (layer.world?.[y] !== undefined) return layer.world[y];
   }
-  return null;
+  return undefined;
 }
 
-function meter(fraction) {
-  return h('span', { class: 'meter' }, h('span', { style: `width:${Math.max(2, fraction * 100).toFixed(0)}%` }));
+function closeButton(label, onclick) {
+  const button = h('button', { type: 'button', class: 'close', 'aria-label': label, onclick });
+  button.innerHTML =
+    '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  return button;
 }
 
-function sourceLine(layer) {
-  return h('p', { class: 'hint' }, `Source: ${layer.source}, via the World Bank.`, layer.note ? ` ${layer.note}` : null);
-}
+// ---- Top 10 ---------------------------------------------------------------
 
-// ---- World view ----------------------------------------------------------
-
-export function renderWorld(container, { layer, year, rows, nameOf, onCountry }) {
-  const isTopic = layer.kind === 'topic';
-  const now = worldAt(layer, year);
-  const before = worldAt(layer, year - 10);
-
-  let lede;
-  if (!now) {
-    lede = h('p', { class: 'lede' }, `No figures for ${year}. This data starts in ${layer.years?.[0]}.`);
-  } else if (isTopic) {
-    const change = before
-      ? [`, ${now.value >= before.value ? 'up' : 'down'} from ${pct(before.value)} in ${before.year}`]
-      : [];
-    lede = h(
-      'p',
-      { class: 'lede' },
-      'On average, countries spent ',
-      strong(pct(now.value)),
-      ` of their speech on ${layer.short} in ${year}`,
-      change,
-      '.',
-    );
-  } else {
-    lede = h(
-      'p',
-      { class: 'lede' },
-      `${layer.label} in the typical (median) country was `,
-      strong(layer.format(now.value)),
-      ` in ${now.year}`,
-      before ? `, compared with ${layer.format(before.value)} in ${before.year}` : null,
-      '.',
-    );
-  }
-
-  const peak = isTopic ? peakYear(layer) : null;
-  const stats = h(
-    'div',
-    { class: 'stats' },
-    h(
-      'div',
-      { class: 'stat' },
-      h('div', { class: 'stat-value' }, String(rows.length)),
-      h('div', { class: 'stat-label' }, isTopic ? 'countries spoke' : 'countries with figures'),
-    ),
-    isTopic
-      ? h(
-          'div',
-          { class: 'stat' },
-          h('div', { class: 'stat-value' }, String(peak.year)),
-          h('div', { class: 'stat-label' }, `peak year (${pct(peak.value)})`),
-        )
-      : rows.length
-        ? h(
-            'div',
-            { class: 'stat' },
-            h('div', { class: 'stat-value' }, layer.format(rows[0].value)),
-            h('div', { class: 'stat-label' }, `highest: ${nameOf(rows[0].iso, year)}`),
-          )
-        : null,
-  );
-
+export function renderRankings(container, { layer, year, rows, nameOf, onCountry }) {
   const top = rows.slice(0, 10);
-  const max = top[0]?.value || 1;
-  const ranking = top.length
-    ? [
-        h('h3', {}, isTopic ? 'Talked about it most' : 'Highest'),
-        h(
+  container.replaceChildren(
+    h('p', { class: 'popover-title' }, `Highest · ${year}`),
+    top.length
+      ? h(
           'ol',
-          { class: 'ranking' },
+          { class: 'rank-list' },
           top.map((row, i) =>
             h(
               'li',
@@ -125,245 +60,203 @@ export function renderWorld(container, { layer, year, rows, nameOf, onCountry })
                 { type: 'button', class: 'rank-row', onclick: () => onCountry(row.iso) },
                 h('span', { class: 'rank-n' }, String(i + 1)),
                 h('span', { class: 'rank-name' }, nameOf(row.iso, year)),
-                meter(row.value / max),
                 h('span', { class: 'rank-value' }, layer.format(row.value)),
               ),
             ),
           ),
-        ),
-      ]
-    : [];
-
-  const parts = [
-    h('div', {}, h('p', { class: 'kicker' }, `The world · ${year}`), h('h2', {}, layer.label)),
-    lede,
-    stats,
-    h('div', {}, ranking),
-    h('p', { class: 'hint' }, 'Click any country on the globe or in this list to see more.'),
-    isTopic ? null : sourceLine(layer),
-  ];
-  container.replaceChildren(...parts.filter(Boolean));
+        )
+      : h('p', { class: 'popover-title' }, `No data for ${year}.`),
+  );
 }
 
-// ---- One country ---------------------------------------------------------
+// ---- Country card -----------------------------------------------------------
 
-export function renderCountry(container, ctx) {
-  const { iso, year, topics, speeches, detail, continent, nameOf, focus } = ctx;
+export function renderCard(container, ctx) {
+  const { iso, year, topics, speeches, detail, continent, nameOf, focus, showDetails } = ctx;
+  const { topic, indicator } = focus;
   const byYear = speeches.shares[iso];
-  const shares = byYear?.[year];
   const name = nameOf(iso, year);
   const todayName = nameOf(iso, 9999);
   const thisYear = detail?.years[year];
   const labelOf = Object.fromEntries(topics.map((t) => [t.id, t.label]));
 
-  const body = [
+  const parts = [
     h(
       'div',
-      { class: 'panel-head' },
-      h('div', {}, h('p', { class: 'kicker' }, [continent, year].filter(Boolean).join(' · ')), h('h2', {}, name)),
-      h(
-        'button',
-        { type: 'button', class: 'icon-button', 'aria-label': 'Close and go back to the world view', onclick: ctx.onClose },
-        closeIcon(),
-      ),
+      { class: 'card-head' },
+      h('div', {}, h('p', { class: 'card-kicker' }, [continent, year].filter(Boolean).join(' · ')), h('h2', { class: 'card-title' }, name)),
+      closeButton('Close', ctx.onClose),
     ),
+    name !== todayName ? h('p', { class: 'card-note' }, `Seat now held by ${todayName}`) : null,
   ];
-  if (name !== todayName) body.push(h('p', { class: 'note' }, `This UN seat is now held by ${todayName}.`));
-  if (!byYear) body.push(h('p', { class: 'note' }, 'There are no General Debate speeches for this place in the dataset.'));
-  else if (!shares) body.push(h('p', { class: 'note' }, `No speech on record for ${year}.`));
 
-  // The standout quote: on the focus topic if the speech has one.
-  const quotes = thisYear?.quotes ?? [];
-  const lead = quotes.find((q) => q.topic === focus.topic.id) ?? quotes[0];
-  if (lead) {
-    body.push(
+  // The two headline numbers: what they said, and what the numbers show.
+  const metrics = [];
+  if (byYear) {
+    const now = topic.value(iso, year);
+    metrics.push(
       h(
-        'figure',
-        { class: 'quote-card' },
-        h('div', { class: 'quote-topic' }, `On ${midSentence(labelOf[lead.topic])}`),
-        h('blockquote', {}, `“${lead.text}”`),
-        h('figcaption', {}, `${name}’s speech to the UN General Debate, ${year}`),
+        'div',
+        {},
+        h('div', { class: 'metric-value' }, now ? pct(now.value) : '—'),
+        h('div', { class: 'metric-label' }, now ? `of speech on ${topic.short}` : `No speech in ${year}`),
+        now ? h('div', { class: 'metric-compare' }, versus(now.value, worldAt(topic, year), 'world avg')) : null,
       ),
     );
-  } else if (shares && detail === null) {
-    body.push(h('p', { class: 'hint' }, 'Loading quotes…'));
+  }
+  if (indicator) {
+    const now = indicator.ready ? indicator.value(iso, year) : null;
+    metrics.push(
+      h(
+        'div',
+        {},
+        h('div', { class: 'metric-value' }, now ? indicator.format(now.value) : '—'),
+        h('div', { class: 'metric-label' }, indicator.label),
+        h(
+          'div',
+          { class: 'metric-compare' },
+          !indicator.ready
+            ? 'Loading…'
+            : now
+              ? [versus(now.value, worldAt(indicator, now.year), 'median'), now.year !== year ? ` (${now.year})` : '']
+              : `No figure for ${year}`,
+        ),
+      ),
+    );
+  }
+  if (metrics.length) parts.push(h('div', { class: 'metrics' }, metrics));
+  else parts.push(h('p', { class: 'card-note' }, 'No speeches or figures for this place.'));
+
+  // One quote, on the chosen topic if the speech has one.
+  const quotes = thisYear?.quotes ?? [];
+  const lead = quotes.find((q) => q.topic === topic.id) ?? quotes[0];
+  if (lead) parts.push(h('blockquote', { class: 'quote', title: labelOf[lead.topic] }, `“${lead.text}”`));
+
+  // Everything else waits behind "Details".
+  const hasMore = byYear || (indicator?.ready && Object.keys(indicator.series(iso)).length);
+  if (hasMore) {
+    parts.push(
+      h(
+        'button',
+        { type: 'button', class: 'details-toggle', 'aria-expanded': String(showDetails), onclick: ctx.onToggleDetails },
+        showDetails ? 'Less' : 'Details',
+        h('span', { 'aria-hidden': 'true' }, showDetails ? '↑' : '↓'),
+      ),
+    );
+  }
+  if (showDetails && hasMore) parts.push(details(ctx, todayName, quotes, lead, labelOf));
+
+  container.replaceChildren(...parts.filter(Boolean));
+}
+
+function details(ctx, todayName, quotes, lead, labelOf) {
+  const { iso, year, topics, speeches, nameOf, focus } = ctx;
+  const { topic, indicator } = focus;
+  const byYear = speeches.shares[iso];
+  const sections = [];
+
+  // Over time: the country against the world.
+  const charts = [];
+  if (byYear) {
+    const series = {};
+    for (const yr of Object.keys(byYear)) series[yr] = topic.value(iso, yr).value;
+    charts.push(
+      h(
+        'div',
+        {},
+        miniChart({
+          country: series, world: topic.world, years: speeches.years, year, onPickYear: ctx.onYear,
+          label: `${todayName}'s share of speech on ${topic.short} over time, against the world average`,
+        }),
+        h('div', { class: 'chart-caption' }, `Speech on ${topic.short}`),
+      ),
+    );
+  }
+  if (indicator?.ready && Object.keys(indicator.series(iso)).length) {
+    charts.push(
+      h(
+        'div',
+        {},
+        miniChart({
+          country: indicator.series(iso), world: indicator.world, years: speeches.years, year, onPickYear: ctx.onYear,
+          label: `${todayName}'s ${midSentence(indicator.label)} over time, against the world median`,
+        }),
+        h('div', { class: 'chart-caption' }, indicator.label),
+      ),
+    );
+  }
+  if (charts.length) {
+    sections.push(
+      h('div', {}, h('p', { class: 'section-label' }, `${speeches.years[0]}–${speeches.years[1]} · dashed = world`), h('div', { class: 'charts' }, charts)),
+    );
   }
 
-  body.push(saysVsNumbers(ctx, name, todayName));
-
+  // What else they talked about this year.
+  const shares = byYear?.[year];
   if (shares) {
     const ranked = topics
       .map((t, i) => ({ ...t, value: shares[i] / 10 }))
       .filter((t) => t.value > 0)
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
     const max = ranked[0]?.value || 1;
-    const ceremonial = 100 - shares.reduce((a, b) => a + b, 0) / 10;
-    body.push(
+    sections.push(
       h(
-        'section',
+        'div',
         {},
-        h('h3', {}, `Everything ${name} talked about in ${year}`),
+        h('p', { class: 'section-label' }, `Topics in ${year}`),
         h(
           'div',
-          { class: 'bars' },
+          { class: 'topic-rows' },
           ranked.map((t) =>
             h(
-              'div',
-              { class: 'bar-row' },
-              h(
-                'button',
-                {
-                  type: 'button',
-                  'aria-pressed': String(t.id === focus.topic.id),
-                  title: `Colour the map by ${t.label}`,
-                  onclick: () => ctx.onLayer(t.id),
-                },
-                h('span', {}, t.label),
-                meter(t.value / max),
-                h('span', { class: 'rank-value' }, pct(t.value)),
-              ),
+              'button',
+              {
+                type: 'button',
+                class: 'topic-row',
+                'aria-pressed': String(t.id === topic.id),
+                title: `Colour the map by ${t.label}`,
+                onclick: () => ctx.onLayer(t.id),
+              },
+              h('span', { class: 'topic-name' }, t.label),
+              h('span', { class: 'meter' }, h('span', { style: `width:${Math.max(3, (t.value / max) * 100).toFixed(0)}%` })),
+              h('span', { class: 'rank-value' }, pct(t.value)),
             ),
           ),
         ),
-        h('p', { class: 'hint' }, `The other ${pct(ceremonial)} was ceremonial or didn’t fit a topic.`),
       ),
     );
   }
 
+  const thisYear = ctx.detail?.years[year];
   if (thisYear?.allies.length) {
-    body.push(
+    sections.push(
       h(
-        'section',
+        'div',
         {},
-        h('h3', {}, 'Speaks most like'),
+        h('p', { class: 'section-label', title: 'Countries whose speeches covered the most similar ground this year' }, 'Speaks most like'),
         h(
           'div',
           { class: 'chips' },
-          thisYear.allies.map(([code]) =>
-            h('button', { type: 'button', class: 'chip', onclick: () => ctx.onCountry(code) }, nameOf(code, year)),
-          ),
+          thisYear.allies.map(([code]) => h('button', { type: 'button', class: 'chip', onclick: () => ctx.onCountry(code) }, nameOf(code, year))),
         ),
-        h('p', { class: 'hint', style: 'margin-top:8px' }, 'Countries whose speeches covered the most similar ground this year.'),
       ),
     );
   }
 
   const others = quotes.filter((q) => q !== lead);
   if (others.length) {
-    body.push(
-      h(
-        'details',
-        { class: 'more-quotes' },
-        h('summary', {}, `More from this speech (${others.map((q) => midSentence(labelOf[q.topic])).join(', ')})`),
-        others.map((q) => h('figure', {}, h('blockquote', {}, `“${q.text}”`), h('figcaption', {}, labelOf[q.topic]))),
-      ),
-    );
-  }
-
-  container.replaceChildren(...body.filter(Boolean));
-}
-
-// Two small cards side by side: how much the country talked about the topic,
-// and the World Bank figure that goes with it, each against the world.
-function saysVsNumbers(ctx, name, todayName) {
-  const { iso, year, speeches, focus } = ctx;
-  const { topic, indicator } = focus;
-  const cards = [];
-  const sentences = [];
-
-  if (speeches.shares[iso]) {
-    const country = {};
-    for (const yr of Object.keys(speeches.shares[iso])) country[yr] = topic.value(iso, yr).value;
-    const now = topic.value(iso, year);
-    const world = worldAt(topic, year);
-    cards.push(
+    sections.push(
       h(
         'div',
-        { class: 'compare-card' },
-        h('div', { class: 'compare-label' }, `Speech on ${topic.short}`),
-        h('div', { class: 'compare-value' }, now ? pct(now.value) : '—'),
-        h('div', { class: 'compare-label' }, world ? `world average ${pct(world.value)}` : ''),
-        miniChart({
-          country, world: topic.world, years: speeches.years, year, onPickYear: ctx.onYear,
-          label: `${todayName}'s share of speech on ${topic.short} over time, against the world average`,
-        }),
+        {},
+        h('p', { class: 'section-label' }, 'Also said'),
+        others.map((q) => h('blockquote', { class: 'more-quote', title: labelOf[q.topic] }, `“${q.text}”`)),
       ),
     );
-    if (now && world?.value > 0) {
-      sentences.push(
-        now.value === 0
-          ? [`${name} didn’t talk about ${topic.short} this year.`]
-          : [
-              `${capitalise(topic.short)} took up `, strong(pct(now.value)), ` of ${name}’s speech, `,
-              comparison(now.value, world.value), ' world average.',
-            ],
-      );
-    }
   }
 
-  if (indicator) {
-    if (!indicator.ready) {
-      cards.push(h('div', { class: 'compare-card' }, h('div', { class: 'compare-label' }, 'Loading…')));
-    } else {
-      const series = indicator.series(iso);
-      const now = indicator.value(iso, year);
-      const world = now ? worldAt(indicator, now.year) : null;
-      cards.push(
-        h(
-          'div',
-          { class: 'compare-card' },
-          h('div', { class: 'compare-label' }, indicator.label),
-          h('div', { class: 'compare-value' }, now ? indicator.format(now.value) : '—'),
-          h(
-            'div',
-            { class: 'compare-label' },
-            !Object.keys(series).length
-              ? 'No World Bank figures'
-              : now
-                ? `${now.year !== year ? `${now.year} figure · ` : ''}world median ${world ? indicator.format(world.value) : '—'}`
-                : `No figure for ${year}`,
-          ),
-          Object.keys(series).length
-            ? miniChart({
-                country: series, world: indicator.world, years: speeches.years, year, onPickYear: ctx.onYear,
-                label: `${todayName}'s ${midSentence(indicator.label)} over time, against the world median`,
-              })
-            : null,
-        ),
-      );
-      if (now && world?.value > 0) {
-        sentences.push([
-          `On ${midSentence(indicator.label)}, ${sentences.length ? 'it' : todayName} stood at `,
-          strong(indicator.format(now.value)), ', ', comparison(now.value, world.value), ' median country.',
-        ]);
-      }
-    }
-  }
+  if (indicator) sections.push(h('p', { class: 'source' }, `${indicator.label}: ${indicator.source}, via the World Bank.`));
 
-  if (!cards.length) return null;
-  return h(
-    'section',
-    {},
-    h('h3', {}, indicator ? 'Says vs numbers' : 'What they said'),
-    h('div', { class: 'compare' }, cards),
-    sentences.length ? h('p', { class: 'takeaway' }, sentences.map((s, i) => [i ? ' ' : '', ...s])) : null,
-    h(
-      'div',
-      { class: 'key' },
-      h('span', {}, h('span', { class: 'key-country' }), todayName),
-      h('span', {}, h('span', { class: 'key-world' }), 'World'),
-      h('span', {}, 'Click a chart to change year'),
-    ),
-    indicator ? h('div', { style: 'margin-top:8px' }, sourceLine(indicator)) : null,
-  );
-}
-
-function closeIcon() {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', '18');
-  svg.setAttribute('height', '18');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = '<path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
-  return svg;
+  return h('div', { class: 'details' }, sections);
 }

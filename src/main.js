@@ -4,7 +4,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { drawSparkline } from './chart.js';
 import { loadJson, makeNamer, shapeInfo } from './data.js';
 import { makeLayers, pairOf, ranking } from './layers.js';
-import { renderCountry, renderWorld } from './panel.js';
+import { renderCard, renderRankings } from './panel.js';
 import './style.css';
 
 // MapLibre 6 needs to be told where its background worker lives when bundled by Vite.
@@ -43,12 +43,11 @@ const continentOf = {
   CSK: 'Europe', DDR: 'Europe', YUG: 'Europe', YMD: 'Asia', EU: 'Europe',
 };
 const [FIRST_YEAR, LAST_YEAR] = speeches.years;
-const phone = matchMedia('(max-width: 720px)');
-const overlayPicker = matchMedia('(max-width: 1180px)');
+const phone = matchMedia('(max-width: 640px)');
 
 // What's on screen. Kept in the address bar so any view can be shared as a link.
 // Climate is the opening view: it changes the most visibly over time.
-const state = { layer: 'climate', year: LAST_YEAR, country: null };
+const state = { layer: 'climate', year: LAST_YEAR, country: null, details: false };
 const params = new URLSearchParams(location.hash.slice(1));
 if (layers[params.get('layer')]) state.layer = params.get('layer');
 if (+params.get('year') >= FIRST_YEAR && +params.get('year') <= LAST_YEAR) state.year = +params.get('year');
@@ -70,16 +69,19 @@ function rampColor(stops) {
   return ['interpolate', ['linear'], ['coalesce', ['feature-state', 'value'], 0], ...RAMP.flatMap((c, i) => [stops[i], c])];
 }
 
-// A self-contained map style: just ocean, our country shapes and a soft
-// atmosphere. No third-party tile server, so nothing can break or rate-limit us.
+// The whole inhabited world, left of the date line to the Arctic. The map opens
+// fitted to this, clear of the controls at the top and the year bar below.
+const WORLD = [[-170, -57], [180, 78]];
+const worldPadding = () =>
+  phone.matches ? { top: 130, bottom: 80, left: 8, right: 8 } : { top: 70, bottom: 90, left: 40, right: 40 };
+
+// Antarctica has no data and would be a huge empty band along the bottom.
+const notAntarctica = ['!=', ['get', 'iso3'], 'ATA'];
+
+// A self-contained map style: just our country shapes on a plain background.
+// No third-party tile server, so nothing can break or rate-limit us.
 const style = {
   version: 8,
-  projection: { type: 'globe' },
-  sky: {
-    'sky-color': color('--space'),
-    'horizon-color': color('--atmosphere'),
-    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0],
-  },
   sources: {
     countries: { type: 'geojson', data: countries, promoteId: 'iso3' },
     dots: { type: 'geojson', data: dots, promoteId: 'iso3' },
@@ -91,17 +93,18 @@ const style = {
       id: 'country-fill',
       type: 'fill',
       source: 'countries',
+      filter: notAntarctica,
       paint: { 'fill-color': color('--land'), 'fill-opacity': ['case', has, 1, 0] },
     },
-    { id: 'country-border', type: 'line', source: 'countries', paint: { 'line-color': color('--border'), 'line-width': 0.6 } },
+    { id: 'country-border', type: 'line', source: 'countries', filter: notAntarctica, paint: { 'line-color': color('--border'), 'line-width': 0.5 } },
     {
       id: 'country-outline',
       type: 'line',
       source: 'countries',
       paint: {
-        // White, not gold: gold is also the top of the colour scale and would vanish.
-        'line-color': ['case', selected, '#ffffff', 'rgba(255,255,255,0.7)'],
-        'line-width': ['case', selected, 2.5, hovered, 1.4, 0],
+        'line-color': color('--select'),
+        'line-opacity': ['case', selected, 1, hovered, 0.6, 0],
+        'line-width': ['case', selected, 2, 1.2],
       },
     },
     // Dots for places too small to see or click; only shown where there's data.
@@ -113,9 +116,9 @@ const style = {
         'circle-color': color('--land'),
         'circle-opacity': ['case', has, 1, 0],
         'circle-stroke-opacity': ['case', has, 1, 0],
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 3.5, 4, 5.5, 7, 7],
-        'circle-stroke-color': ['case', selected, '#ffffff', hovered, '#ffffff', color('--bg')],
-        'circle-stroke-width': ['case', selected, 2.5, hovered, 2, 1],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 3, 4, 5, 7, 6],
+        'circle-stroke-color': ['case', selected, color('--select'), hovered, color('--select'), color('--border')],
+        'circle-stroke-width': ['case', selected, 2, hovered, 1.5, 1],
       },
     },
   ],
@@ -124,11 +127,16 @@ const style = {
 const map = new Map({
   container: 'map',
   style,
-  center: [15, 20],
-  zoom: phone.matches ? 1.1 : 1.85,
+  bounds: WORLD,
+  fitBoundsOptions: { padding: worldPadding() },
+  // Wrap around at the date line, so Pacific countries like Fiji can sit mid-screen.
+  renderWorldCopies: true,
   attributionControl: false,
 });
-map.addControl(new NavigationControl({ visualizePitch: true }), 'bottom-left');
+// How far out the opening view is; zooming further out only shows empty space.
+const homeZoom = map.getZoom();
+map.setMinZoom(homeZoom - 0.3);
+map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right');
 map.addControl(
   new AttributionControl({ compact: true, customAttribution: 'Speeches: UN General Debate Corpus · Data: World Bank (CC BY 4.0) · Borders: Natural Earth' }),
   'bottom-left',
@@ -142,14 +150,14 @@ function setState(id, featureState) {
 
 // Diagonal stripes for "no data", drawn once and handed to the map as an image.
 function hatchImage() {
-  const size = 8;
+  const size = 6;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = color('--land');
   ctx.fillRect(0, 0, size, size);
   ctx.strokeStyle = color('--hatch');
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 1.5;
   for (const offset of [-size, 0, size]) {
     ctx.beginPath();
     ctx.moveTo(offset, size);
@@ -169,56 +177,69 @@ function paintYear() {
   }
 }
 
-const legendScale = document.getElementById('legend-scale');
-const legendText = document.getElementById('legend-text');
-const legendNone = document.getElementById('legend-none-text');
+const legend = document.getElementById('legend');
 const spark = document.getElementById('spark');
-const trackNote = document.getElementById('track-note');
 
 function paintLayer() {
   const layer = layers[state.layer];
   map.setPaintProperty('country-fill', 'fill-color', rampColor(layer.stops));
   map.setPaintProperty('country-dots', 'circle-color', rampColor(layer.stops));
-  legendScale.replaceChildren(
-    ...layer.stops.map((v, i) => {
-      const span = document.createElement('span');
-      span.textContent = (layer.legendFormat ?? layer.format)(v) + (i === layer.stops.length - 1 ? '+' : '');
-      return span;
-    }),
-  );
-  if (layer.kind === 'topic') {
-    legendText.textContent = "Share of each country's speech spent on this topic.";
-    legendNone.textContent = 'No speech that year';
-    trackNote.textContent = 'World average for this topic · dots mark key moments';
-  } else {
-    legendText.textContent = `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank.`;
-    legendNone.textContent = 'No figure that year';
-    trackNote.textContent = 'World median · dots mark key moments';
-  }
+  const format = layer.legendFormat ?? layer.format;
+  document.getElementById('legend-min').textContent = format(layer.stops[0]);
+  document.getElementById('legend-max').textContent = `${format(layer.stops.at(-1))}+`;
+  legend.title =
+    layer.kind === 'topic'
+      ? "Share of each country's speech spent on this topic"
+      : `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank`;
   drawSparkline(spark, layer.world, speeches.years);
   paintYear();
+  refreshRankings();
 }
 
 const mapReady = new Promise((resolve) => map.on('load', resolve));
 
 mapReady.then(async () => {
-  // Start with the credits folded into the ⓘ button so they don't sit over the globe.
+  // Start with the credits folded into the ⓘ button so they don't sit over the map.
   document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
   map.addImage('hatch', hatchImage());
-  map.addLayer({ id: 'country-nodata', type: 'fill', source: 'countries', paint: { 'fill-pattern': 'hatch' } }, 'country-fill');
+  map.addLayer(
+    { id: 'country-nodata', type: 'fill', source: 'countries', filter: notAntarctica, paint: { 'fill-pattern': 'hatch' } },
+    'country-fill',
+  );
   await layers[state.layer].load?.();
   paintLayer();
   if (state.country) selectCountry(state.country);
-  else refreshPanel();
+});
+
+// ---- Pop-overs: only one open at a time -----------------------------------
+
+const picker = document.getElementById('picker');
+const layerButton = document.getElementById('layer-button');
+const rankings = document.getElementById('rankings');
+const rankButton = document.getElementById('rank-button');
+const card = document.getElementById('card');
+
+function closePopovers(except) {
+  if (except !== picker) {
+    picker.hidden = true;
+    layerButton.setAttribute('aria-expanded', 'false');
+  }
+  if (except !== rankings) {
+    rankings.hidden = true;
+    rankButton.setAttribute('aria-expanded', 'false');
+  }
+}
+
+// Clicking anywhere outside the open pop-over closes it.
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('.hud, .popover')) closePopovers();
 });
 
 // ---- Picker ---------------------------------------------------------------
 
-const rail = document.getElementById('rail');
-const railOpen = document.getElementById('rail-open');
 const layerList = document.getElementById('layer-list');
 const search = document.getElementById('layer-search');
-const chipLabel = document.getElementById('layer-chip-label');
+const layerLabel = document.getElementById('layer-label');
 
 function buildList() {
   const q = search.value.trim().toLowerCase();
@@ -250,7 +271,7 @@ function buildList() {
       }
       button.addEventListener('click', () => {
         setLayer(layer.id);
-        closeRail();
+        closePopovers();
       });
       nodes.push(button);
     }
@@ -258,48 +279,67 @@ function buildList() {
   if (!nodes.length) {
     const empty = document.createElement('p');
     empty.className = 'layer-empty';
-    empty.textContent = 'Nothing matches that search.';
+    empty.textContent = 'Nothing matches.';
     nodes.push(empty);
   }
   layerList.replaceChildren(...nodes);
-  // Wait a frame so the list has its final size before scrolling the choice into view.
-  requestAnimationFrame(() => {
-    const current = layerList.querySelector('[aria-pressed="true"]');
-    if (current) layerList.scrollTop = current.offsetTop - layerList.clientHeight / 2;
-  });
 }
 
 search.addEventListener('input', buildList);
 
-function openRail() {
-  rail.classList.add('is-open');
-  railOpen.setAttribute('aria-expanded', 'true');
-  search.focus();
-}
-
-function closeRail() {
-  if (!overlayPicker.matches) return;
-  rail.classList.remove('is-open');
-  railOpen.setAttribute('aria-expanded', 'false');
-}
-
-railOpen.addEventListener('click', openRail);
-document.getElementById('rail-close').addEventListener('click', closeRail);
+layerButton.addEventListener('click', () => {
+  const open = picker.hidden;
+  closePopovers(picker);
+  picker.hidden = !open;
+  layerButton.setAttribute('aria-expanded', String(open));
+  if (open) {
+    search.value = '';
+    buildList();
+    const current = layerList.querySelector('[aria-pressed="true"]');
+    if (current) layerList.scrollTop = current.offsetTop - layerList.clientHeight / 2;
+    if (!phone.matches) search.focus();
+  }
+});
 
 async function setLayer(id) {
   state.layer = id;
-  chipLabel.textContent = layers[id].label;
-  buildList();
+  layerLabel.textContent = layers[id].label;
   saveToUrl();
   await layers[id].load?.();
   await mapReady;
   if (state.layer !== id) return; // the reader picked something else while this loaded
   paintLayer();
-  refreshPanel();
+  refreshCard();
 }
 
-chipLabel.textContent = layers[state.layer].label;
-buildList();
+layerLabel.textContent = layers[state.layer].label;
+
+// ---- Rankings ---------------------------------------------------------------
+
+function refreshRankings() {
+  const layer = layers[state.layer];
+  if (rankings.hidden || !layer.ready) return;
+  const codes = layer.kind === 'topic' ? Object.keys(speeches.shares) : Object.keys(layer.data);
+  renderRankings(rankings, {
+    layer,
+    year: state.year,
+    rows: ranking(layer, state.year, codes),
+    nameOf,
+    onCountry: (iso) => {
+      closePopovers();
+      selectCountry(iso);
+    },
+  });
+}
+
+rankButton.addEventListener('click', () => {
+  const open = rankings.hidden;
+  closePopovers(rankings);
+  if (open) closeCountry();
+  rankings.hidden = !open;
+  rankButton.setAttribute('aria-expanded', String(open));
+  refreshRankings();
+});
 
 // ---- Year slider, events and play button ---------------------------------
 
@@ -314,7 +354,7 @@ slider.addEventListener('input', () => setYear(+slider.value));
 
 const position = (year) => `${((year - FIRST_YEAR) / (LAST_YEAR - FIRST_YEAR)) * 100}%`;
 
-const eventButtons = EVENTS.map(([year, text]) => {
+for (const [year, text] of EVENTS) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'event';
@@ -329,21 +369,20 @@ const eventButtons = EVENTS.map(([year, text]) => {
     setYear(year);
   });
   eventsBox.append(button);
-  return [year, button];
-});
+}
 
 function showYear() {
   slider.value = state.year;
   slider.style.setProperty('--progress', position(state.year));
   yearLabel.textContent = state.year;
-  for (const [year, button] of eventButtons) button.classList.toggle('is-current', year === state.year);
 }
 
 function setYear(year) {
   state.year = year;
   showYear();
   if (layers[state.layer].ready) paintYear();
-  refreshPanel();
+  refreshCard();
+  refreshRankings();
   saveToUrl();
 }
 
@@ -382,16 +421,16 @@ function featureAt(point) {
   return feature?.properties.iso3 ?? null;
 }
 
-function tooltipText(iso) {
-  const name = nameOf(iso, state.year);
+function showTooltip(iso, x, y) {
   const layer = layers[state.layer];
   const found = layer.value(iso, state.year);
-  if (found) {
-    const when = found.year === state.year ? '' : ` (${found.year})`;
-    return `${name} · ${layer.label}: ${layer.format(found.value)}${when}`;
-  }
-  if (layer.kind === 'topic') return `${name} · ${speeches.shares[iso] ? `no speech in ${state.year}` : 'no speeches'}`;
-  return `${name} · no figure for ${state.year}`;
+  const name = document.createElement('span');
+  name.textContent = nameOf(iso, state.year);
+  const value = document.createElement('b');
+  value.textContent = found ? layer.format(found.value) + (found.year === state.year ? '' : ` (${found.year})`) : '—';
+  tooltip.replaceChildren(name, value);
+  tooltip.style.transform = `translate(${x + 14}px, ${y + 14}px)`;
+  tooltip.hidden = false;
 }
 
 map.on('mousemove', (e) => {
@@ -402,11 +441,8 @@ map.on('mousemove', (e) => {
     setState(hoveredId, { hover: true });
   }
   map.getCanvas().style.cursor = iso ? 'pointer' : '';
-  tooltip.hidden = !iso;
-  if (iso) {
-    tooltip.textContent = tooltipText(iso);
-    tooltip.style.transform = `translate(${e.originalEvent.clientX + 14}px, ${e.originalEvent.clientY + 14}px)`;
-  }
+  if (iso) showTooltip(iso, e.originalEvent.clientX, e.originalEvent.clientY);
+  else tooltip.hidden = true;
 });
 
 map.getCanvas().addEventListener('mouseleave', () => {
@@ -415,44 +451,38 @@ map.getCanvas().addEventListener('mouseleave', () => {
   tooltip.hidden = true;
 });
 
-// The label would otherwise hang in mid-air while the globe spins away under it.
+// The label would otherwise hang in mid-air while the map moves under it.
 map.on('movestart', () => {
   tooltip.hidden = true;
 });
 
 map.on('click', (e) => {
+  closePopovers();
   const iso = featureAt(e.point);
   if (iso) selectCountry(iso);
+  else if (state.country) closeCountry();
 });
 
-// ---- Side panel (and the bottom sheet on phones) ----------------------------
+// ---- Country card -------------------------------------------------------
 
-const panel = document.getElementById('panel');
-const panelBody = document.getElementById('panel-body');
-const sheetToggle = document.getElementById('sheet-toggle');
-const sheetLabel = document.getElementById('sheet-toggle-label');
 const details = {}; // iso3 -> loaded detail file, fetched the first time it's needed
-
-function setSheet(mode) {
-  panel.dataset.sheet = mode;
-  sheetToggle.setAttribute('aria-expanded', String(mode === 'full'));
-  sheetLabel.textContent = mode === 'full' ? 'Show less' : 'Show more';
-}
-
-sheetToggle.addEventListener('click', () => setSheet(panel.dataset.sheet === 'full' ? 'peek' : 'full'));
 
 function selectCountry(iso) {
   setState(state.country, { selected: false });
   state.country = iso;
   setState(iso, { selected: true });
-  panelBody.scrollTop = 0;
-  if (phone.matches) setSheet('full');
-  refreshPanel();
+  rankings.hidden = true;
+  rankButton.setAttribute('aria-expanded', 'false');
+  card.hidden = false;
+  card.scrollTop = 0;
+  refreshCard();
   saveToUrl();
 
   if (centreOf[iso]) {
-    const zoom = smallPlaces.has(iso) ? 3.6 : 2.6;
-    map.flyTo({ center: centreOf[iso], zoom: Math.max(map.getZoom(), phone.matches ? zoom - 0.6 : zoom), speed: 0.8 });
+    // Keep the country clear of the card: on wide screens shift the view left.
+    const offset = phone.matches ? [0, -innerHeight * 0.2] : [-180, 0];
+    const zoom = Math.max(map.getZoom(), homeZoom + (smallPlaces.has(iso) ? 1.5 : 0.5));
+    map.flyTo({ center: centreOf[iso], zoom, offset, speed: 0.8 });
   }
   if (speeches.shares[iso] && !(iso in details)) {
     details[iso] = null;
@@ -460,7 +490,7 @@ function selectCountry(iso) {
       .catch(() => ({ years: {} }))
       .then((detail) => {
         details[iso] = detail;
-        if (state.country === iso) refreshPanel();
+        if (state.country === iso) refreshCard();
       });
   }
 }
@@ -468,28 +498,16 @@ function selectCountry(iso) {
 function closeCountry() {
   setState(state.country, { selected: false });
   state.country = null;
-  if (phone.matches) setSheet('peek');
-  refreshPanel();
+  card.hidden = true;
   saveToUrl();
 }
 
-function refreshPanel() {
+function refreshCard() {
   const layer = layers[state.layer];
-  if (!layer.ready) return;
-  if (!state.country) {
-    const codes = layer.kind === 'topic' ? Object.keys(speeches.shares) : Object.keys(layer.data);
-    renderWorld(panelBody, {
-      layer,
-      year: state.year,
-      rows: ranking(layer, state.year, codes),
-      nameOf,
-      onCountry: selectCountry,
-    });
-    return;
-  }
+  if (!state.country || !layer.ready) return;
   const focus = pairOf(layers, layer);
-  if (focus.indicator && !focus.indicator.ready) focus.indicator.load().then(refreshPanel);
-  renderCountry(panelBody, {
+  if (focus.indicator && !focus.indicator.ready) focus.indicator.load().then(refreshCard);
+  renderCard(card, {
     iso: state.country,
     year: state.year,
     topics,
@@ -498,6 +516,11 @@ function refreshPanel() {
     continent: continentOf[state.country],
     nameOf,
     focus,
+    showDetails: state.details,
+    onToggleDetails: () => {
+      state.details = !state.details;
+      refreshCard();
+    },
     onLayer: setLayer,
     onYear: (year) => {
       stopPlaying();
@@ -508,20 +531,9 @@ function refreshPanel() {
   });
 }
 
-// On phones the timeline lives at the top of the bottom sheet instead of under the globe.
-const timeline = document.getElementById('timeline');
-const stage = document.querySelector('.stage');
-function placeTimeline() {
-  (phone.matches ? document.getElementById('timeline-slot') : stage).append(timeline);
-  if (!phone.matches) delete panel.dataset.sheet;
-  else if (!panel.dataset.sheet) setSheet(state.country ? 'full' : 'peek');
-}
-phone.addEventListener('change', placeTimeline);
-placeTimeline();
-
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || about.open) return;
-  if (rail.classList.contains('is-open')) closeRail();
+  if (!picker.hidden || !rankings.hidden) closePopovers();
   else if (state.country) closeCountry();
 });
 
