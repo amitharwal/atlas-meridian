@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rankings · Atlas Meridian</title>
+    <meta name="description" content="Every country ranked by population, GDP, life expectancy, CO₂ emissions and 30 more World Bank measures, for any year since 1960." />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://amitharwal.github.io/atlas-meridian/rankings/" />
+    <meta property="og:title" content="Country rankings · Atlas Meridian" />
+    <meta property="og:description" content="Every country ranked by 34 World Bank measures and 16 UN speech topics, for any year." />
+    <meta property="og:image" content="https://amitharwal.github.io/atlas-meridian/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="site-nav is-static" data-page="rankings"></header>
+    <main class="page">
+      <h1>Rankings</h1>
+      <p class="sub">Every country, ranked by any measure, for any year.</p>
+
+      <form class="controls" id="controls" onsubmit="return false">
+        <label class="control control-wide">Measure <select id="measure"></select></label>
+        <label class="control">Year <select id="year"></select></label>
+        <label class="control">Region <select id="region"><option value="">All regions</option></select></label>
+        <label class="control">Income <select id="income"><option value="">All income groups</option></select></label>
+        <label class="control">Find <input id="filter" type="search" placeholder="Country name" autocomplete="off" /></label>
+      </form>
+
+      <div class="table-head">
+        <p id="about-measure" class="note"></p>
+        <div class="table-actions">
+          <button id="order" class="pill" type="button" aria-label="Change the order">Highest first</button>
+          <a id="on-map" class="pill" href="../">Show on the map</a>
+        </div>
+      </div>
+      <p id="status" class="note" role="status">Loading…</p>
+      <table class="rank-table" id="table" hidden>
+        <thead><tr><th scope="col" class="num">#</th><th scope="col">Country</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Value</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </main>
+    <script type="module" src="/src/rankings.js"></script>
+  </body>
+</html>

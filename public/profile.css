@@ -1,4 +1,5 @@
-/* Country profile pages. Same colours as the map (see src/style.css). */
+/* Country fact sheets. Same colours as the map (see src/tokens.css). The menu bar's
+   styles are added to each page from src/nav.css. */
 
 :root {
   --bg: #f3f1ec;
@@ -11,6 +12,7 @@
   --on-strong: #ffffff;
   --bar: #2f6194;
   --world: #8a877f;
+  --surface-hover: #ece9e2;
   color-scheme: light;
 }
 
@@ -26,6 +28,7 @@
     --on-strong: #121417;
     --bar: #8fb8db;
     --world: #7c838c;
+    --surface-hover: #2a2e34;
     color-scheme: dark;
   }
 }
@@ -45,36 +48,10 @@ a {
   color: inherit;
 }
 
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  max-width: 880px;
-  margin: 0 auto;
-  padding: 20px 20px 0;
-}
 
-.top .brand {
-  font: 600 19px 'Source Serif 4', Georgia, serif;
-  text-decoration: none;
-}
 
-.top nav {
-  display: flex;
-  gap: 18px;
-  font-size: 14px;
-}
 
-.top nav a {
-  color: var(--text-soft);
-  text-decoration: none;
-}
 
-.top nav a:hover {
-  color: var(--text);
-  text-decoration: underline;
-}
 
 main {
   max-width: 880px;
@@ -329,4 +306,81 @@ footer {
   .topics .compare {
     grid-column: 1 / -1;
   }
+}
+
+/* ---- Fact sheets ---- */
+
+.key-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px 24px;
+  margin: 18px 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.key-facts dt {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.key-facts dd {
+  margin: 2px 0 0;
+  font: 600 26px/1.2 'Source Serif 4', Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.key-facts .year {
+  font: 400 12px 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.button-quiet {
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 24px;
+}
+
+.toc a {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-soft);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.toc a:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+h3 {
+  margin: 32px 0 4px;
+  font: 600 18px 'Source Serif 4', Georgia, serif;
+}
+
+.un h3:first-of-type {
+  margin-top: 20px;
+}
+
+.numbers .label a {
+  text-decoration: none;
+}
+
+.numbers .label a:hover {
+  text-decoration: underline;
 }

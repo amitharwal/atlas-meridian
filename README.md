@@ -1,25 +1,23 @@
 # Atlas Meridian
 
-**What the world says at the United Nations, and what the numbers show.**
+**The world in numbers: a free map of country statistics, and 80 years of what every country said at the UN.**
 
-Every September, each UN member gives a speech at the General Assembly's General Debate.
-Atlas Meridian reads all of them, over 11,000 speeches from 1946 to 2025, sorts what each
-country talked about into 16 topics, and puts it on an interactive world map next to World Bank
-figures. You can see what a country *says* about climate, debt or gender equality alongside
-its CO₂ emissions, foreign debt or women in parliament.
+Pick any of 34 World Bank measures (population, the economy, poverty, health, education,
+the environment, technology, safety) and see it on an interactive world map, year by year since 1960.
 
-- Slide or play through 80 years and watch topics rise and fall (9/11, the Paris Agreement, COVID).
-- See which countries talked about a topic most, including small island states that are
-  hard to spot on a map.
-- Start from one of six short **stories**: the end of empire, the nuclear age, the fall of
-  the Berlin Wall, 9/11, the rise of climate talk, and Fiji's climate diplomacy.
-- Play the daily **"Who said it?"** puzzle (`/daily/`): five real quotes, guess the country.
-- See **who talks about whom**: pick a country and the map shows how often every other country names it.
-- Every country has its own **profile page** (e.g. `/country/fiji/`) with its main topics, who
-  it sounded like in each decade, quotes, and World Bank figures. Find any country by name,
-  including former names like "Soviet Union".
-- Click a country for quotes from its speech, the countries it "speaks most like", and how
-  its words compare with the numbers.
+- **Map**: colour the world by any measure, grouped so it's easy to browse; slide or play
+  through the years; click a country for its key facts, its trend against the median country,
+  and related measures.
+- **Countries** (`/country/`): a fact sheet for each of 221 countries and territories, with every
+  figure, how it compares with the world, and the country's UN speeches.
+- **Rankings** (`/rankings/`): every country ranked by any measure and year, filtered by region,
+  income group or name.
+- **Compare** (`/compare/`): any two countries side by side, with charts back to 1960.
+- **At the UN**: every September, each UN member gives a speech at the General Assembly's
+  General Debate. Atlas Meridian reads all of them (over 11,000 from 1946 to 2025), sorts what
+  each country talked about into 16 topics, and maps that too, along with who gave each speech
+  and which countries name each other. There's also a daily **"Who said it?"** puzzle (`/daily/`)
+  built from the speeches.
 
 It's a free, open-source static website: no accounts, no tracking, no server.
 
@@ -32,15 +30,18 @@ It's a free, open-source static website: no accounts, no tracking, no server.
    passages in `pipeline/training/`. Topics are defined in `pipeline/topics.py`.
 2. **"Speaks most like"** compares the average vectors of speeches given in the same year.
    It measures talking about the same things, not friendship.
-3. **Indicators.** `pipeline/build_indicators.py` downloads eight World Bank series. A GitHub
-   Action refreshes them monthly and redeploys the site.
+3. **Statistics.** `pipeline/build_indicators.py` downloads 34 World Bank series (the list, their
+   groups and labels are at the top of that file; adding one is one line). It writes one file per
+   measure for the map, one per country for its card and pages, and the median country for each
+   year. A GitHub Action refreshes them monthly and redeploys the site.
 4. **Extra data** from the speeches: `pipeline/build_speakers.py` (who gave each speech) and
    `pipeline/build_mentions.py` (which countries each speech names). The puzzle's quote pool is
    built by `pipeline/build_daily.mjs` at publish time.
-5. **Country profiles** are static pages generated at build time by `pipeline/build_profiles.mjs`
+5. **Country fact sheets** are static pages generated at build time by `pipeline/build_profiles.mjs`
    (`npm run build` runs it after Vite), along with `sitemap.xml` for search engines.
-6. **The site** (`index.html`, `src/`) is plain JavaScript built with Vite, with the map
-   drawn by [MapLibre GL](https://maplibre.org/). All data is pre-computed JSON in `public/data/`.
+6. **The site** is plain JavaScript built with Vite: the map (`index.html`, `src/main.js`), with
+   [MapLibre GL](https://maplibre.org/) drawing it; `rankings/`, `compare/` and `daily/`, each with
+   its own script in `src/`. All data is pre-computed JSON in `public/data/`.
 
 ### Accuracy
 
@@ -54,7 +55,7 @@ not by human experts. Treat single numbers as rough; trends are more reliable.
 | What | Source | Licence |
 |---|---|---|
 | Speeches | [UN General Debate Corpus](https://doi.org/10.7910/DVN/0TJX8Y), Jankin, Baturo & Dasandi (2025), *Journal of Peace Research* 62(4); Baturo, Dasandi & Mikhaylov (2017), *Research & Politics* | CC0 |
-| Indicators | [World Bank Open Data](https://data.worldbank.org/) (drawing on the UN, EDGAR, IPU, ITU and FAO) | CC BY 4.0 |
+| Statistics | [World Bank Open Data](https://data.worldbank.org/) (drawing on the UN, IMF, WHO, UNESCO, ILO, EDGAR, IPU, ITU, FAO and others) | CC BY 4.0 |
 | Borders | [Natural Earth](https://www.naturalearthdata.com/) 1:50m | Public domain |
 | Topic model | [BAAI bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) | MIT |
 
@@ -75,6 +76,8 @@ Refreshing the data needs Python 3.11:
 
 ```sh
 python3 pipeline/build_indicators.py           # World Bank figures (standard library only)
+# (On a Mac, if this fails with CERTIFICATE_VERIFY_FAILED, run Python's
+#  "Install Certificates.command", or set SSL_CERT_FILE to a CA bundle.)
 
 python3 -m venv .venv
 .venv/bin/pip install -r pipeline/requirements.txt

@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './nav.css';
 
 :root {
   --font-display: 'Source Serif 4', Georgia, serif;
@@ -39,7 +40,7 @@ button {
 
 .hud {
   position: fixed;
-  top: 16px;
+  top: 60px; /* below the menu bar */
   z-index: 5;
 }
 
@@ -170,23 +171,6 @@ button {
   background: var(--surface-hover);
 }
 
-.text-control {
-  height: 40px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--text);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.text-control:hover,
-.text-control[aria-expanded='true'] {
-  background: var(--surface-hover);
-}
-
 .find {
   display: flex;
   align-items: center;
@@ -235,8 +219,8 @@ button {
 
 .picker {
   position: static;
-  width: 300px;
-  max-height: min(520px, calc(100vh - 200px));
+  width: 340px;
+  max-height: min(560px, calc(100vh - 250px));
   display: flex;
   flex-direction: column;
   padding: 8px;
@@ -320,7 +304,7 @@ button {
 }
 
 .rankings {
-  top: 64px;
+  top: 108px;
   right: 16px;
   width: 280px;
   padding: 14px 8px 8px;
@@ -406,138 +390,14 @@ button {
   color: var(--text-muted);
 }
 
-/* ---- Stories ---- */
-
-.stories {
-  top: 64px;
-  right: 16px;
-  width: 300px;
-  padding: 14px 8px 8px;
-}
-
-.story-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.story-item {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  gap: 8px;
-  width: 100%;
-  min-height: 34px;
-  padding: 7px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-}
-
-.story-item:hover {
-  background: var(--surface-hover);
-}
-
-.story-year {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.story-bar {
-  left: 50%;
-  bottom: 78px;
-  width: min(760px, calc(100vw - 32px));
-  padding: 8px 16px 12px;
-  transform: translateX(-50%);
-}
-
-.story-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.story-count {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.story-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 19px;
-  font-weight: 600;
-}
-
-.story-text {
-  margin: 4px 0 0;
-  color: var(--text-soft);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.story-nav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.story-nav .close {
-  margin: 0 -6px 0 4px;
-}
-
-.story-step {
-  min-height: 32px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.story-step:hover {
-  background: var(--surface-hover);
-}
-
-.story-step:disabled {
-  color: var(--text-muted);
-  opacity: 0.5;
-  cursor: default;
-  background: none;
-}
-
-.daily-link {
-  display: block;
-  margin: 6px 0 0;
-  padding: 10px 8px 4px;
-  border-top: 1px solid var(--line);
-  color: var(--text-soft);
-  font-size: 13px;
-  text-decoration: none;
-}
-
-.daily-link:hover {
-  color: var(--text);
-}
-
 /* ---- Country card ---- */
 
 .country-card {
-  z-index: 6; /* below the lists (stories, rankings, search), which open on top of it */
-  top: 64px;
+  z-index: 6; /* below the lists (rankings, search), which open on top of it */
+  top: 108px;
   right: 16px;
   width: 340px;
-  max-height: calc(100vh - 160px);
-}
-
-/* With a story caption showing, stop the card above it so its buttons stay reachable. */
-body.has-story .country-card {
-  max-height: min(calc(100vh - 160px), calc(var(--story-top, 100vh) - 76px));
+  max-height: calc(100vh - 204px);
 }
 
 .country-card {
@@ -659,8 +519,7 @@ body.has-story .country-card {
 .card-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px 16px;
+  gap: 8px 18px;
   margin-top: 12px;
 }
 
@@ -1060,7 +919,7 @@ body.has-story .country-card {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Loading message, first-visit hint, "link copied" note ---- */
+/* ---- Loading message and "link copied" note ---- */
 
 .loading {
   position: fixed;
@@ -1076,7 +935,6 @@ body.has-story .country-card {
 }
 
 .loading[hidden],
-.hint[hidden],
 .toast[hidden] {
   display: none;
 }
@@ -1084,61 +942,6 @@ body.has-story .country-card {
 .loading.is-error {
   color: var(--text);
   font-weight: 500;
-}
-
-.hint {
-  position: fixed;
-  top: 66px;
-  right: 16px;
-  z-index: 6;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 6px 6px 12px;
-  border-radius: var(--radius);
-  background: var(--strong);
-  color: var(--on-strong);
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: var(--shadow);
-}
-
-/* A small pointer up towards the Stories button. */
-.hint::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  right: 150px;
-  width: 10px;
-  height: 10px;
-  background: inherit;
-  transform: rotate(45deg);
-}
-
-.hint-open {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.hint-open:hover {
-  text-decoration: underline;
-}
-
-.hint .close {
-  width: 26px;
-  height: 26px;
-  margin: 0;
-  color: inherit;
-  opacity: 0.8;
-}
-
-.hint .close:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: inherit;
 }
 
 .toast {
@@ -1245,14 +1048,14 @@ body.has-story .country-card {
 
 @media (max-width: 640px) {
   .hud-left {
-    top: 10px;
+    top: 54px;
     left: 10px;
     right: 96px;
     max-width: none;
   }
 
   .hud-right {
-    top: 10px;
+    top: 54px;
     right: 10px;
     flex-direction: column;
     align-items: flex-end;
@@ -1274,39 +1077,6 @@ body.has-story .country-card {
     flex: 1;
   }
 
-  /* On phones the country card takes the bottom, so the story caption sits at the top. */
-  /* Below both the top-left panel and the column of icons on the right. */
-  .story-bar {
-    top: 204px;
-    bottom: auto;
-    left: 10px;
-    width: auto;
-    right: 10px;
-    transform: none;
-  }
-
-  .story-text {
-    font-size: 13px;
-  }
-
-  /* With a story caption at the top, keep the country card short below it. */
-  body.has-story .country-card {
-    max-height: 30vh;
-  }
-
-  .hint {
-    top: auto;
-    right: auto;
-    left: 50%;
-    bottom: 76px;
-    transform: translateX(-50%);
-    white-space: nowrap;
-  }
-
-  .hint::before {
-    display: none;
-  }
-
   .tagline {
     display: none;
   }
@@ -1317,7 +1087,6 @@ body.has-story .country-card {
   }
 
   .rankings,
-  .stories,
   .country-card {
     top: auto;
     left: 10px;
@@ -1344,4 +1113,137 @@ body.has-story .country-card {
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
     display: none;
   }
+}
+
+/* ---- Added for the statistics hub ---- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The row of group buttons at the top of the picker. */
+.layer-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 2px 4px;
+}
+
+.layer-groups[hidden] {
+  display: none;
+}
+
+.group-chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-soft);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.group-chip:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.group-chip[aria-pressed='true'] {
+  border-color: var(--strong);
+  background: var(--strong);
+  color: var(--on-strong);
+}
+
+/* Key facts on the country card. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.facts dt {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.facts dd {
+  margin: 1px 0 0;
+}
+
+.fact-value {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.fact-value:hover {
+  text-decoration: underline;
+}
+
+.card-un {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.card-un-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.card-un .metric-compare {
+  display: inline;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.stat-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-rows .topic-row {
+  grid-template-columns: 1fr auto;
+}
+
+.rank-more {
+  display: block;
+  margin: 4px 0 0;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.rank-more:hover {
+  color: var(--text);
+  text-decoration: underline;
 }

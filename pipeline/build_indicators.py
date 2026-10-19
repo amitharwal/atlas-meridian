@@ -1,6 +1,13 @@
-"""Download World Bank indicators and write one small file per indicator.
+"""Download World Bank indicators and write the files the site reads.
 
-Each indicator is paired with a speech topic, so the site can show what a
+Writes, into public/data/:
+  indicators/<id>.json   one per indicator, every country and year (for the map)
+  indicators/index.json  the list of indicators, their groups and labels
+  indicators/world.json  the median country for each indicator and year
+  stats/<ISO3>.json      one per country, every indicator (for its card and page)
+  regions.json           World Bank region and income group for each country
+
+Some indicators are paired with a UN speech topic, so the site can show what a
 country says next to what the numbers show. All of these are published by the
 World Bank under CC BY 4.0. (Military spending is deliberately missing: its
 source, SIPRI, doesn't allow republishing the full data set.)
@@ -11,48 +18,98 @@ anything. Run from the project root:  python3 pipeline/build_indicators.py
 
 import json
 import math
+import statistics
 import time
 import urllib.request
 from pathlib import Path
 
 API = "https://api.worldbank.org/v2"
 FIRST_YEAR = 1960
-OUTPUT = Path(__file__).resolve().parent.parent / "public" / "data" / "indicators"
+DATA = Path(__file__).resolve().parent.parent / "public" / "data"
+OUTPUT = DATA / "indicators"
+STATS = DATA / "stats"
 
+# Groups, in the order the site lists them.
+PEOPLE = "People"
+ECONOMY = "Economy"
+POVERTY = "Poverty & inequality"
+HEALTH = "Health"
+EDUCATION = "Education"
+ENVIRONMENT = "Environment & energy"
+TECHNOLOGY = "Technology"
+SOCIETY = "Society & safety"
+
+# format: how a value is written. "usd" ($48.2K), "pct" (12.5%), or "number"
+# (3 significant figures, then `suffix`). signed: can go below zero, so it's
+# compared with the median by showing the median ("median 3.1%"), not a ratio. carry: how many years an old figure
+# may stand in for a missing one; surveys like Gini are only run every few years.
 INDICATORS = [
-    {"id": "gdp_pc", "code": "NY.GDP.PCAP.CD", "label": "GDP per person", "unit": "US$", "pairs": "development", "source": "national accounts data"},
-    {"id": "co2_pc", "code": "EN.GHG.CO2.PC.CE.AR5", "label": "CO₂ emissions per person", "unit": "tonnes", "pairs": "climate", "source": "EDGAR, EU Joint Research Centre"},
-    {"id": "life_exp", "code": "SP.DYN.LE00.IN", "label": "Life expectancy", "unit": "years", "pairs": "health", "source": "UN World Population Prospects"},
-    {"id": "women_parl", "code": "SG.GEN.PARL.ZS", "label": "Women in parliament", "unit": "% of seats", "pairs": "gender", "source": "Inter-Parliamentary Union"},
-    {"id": "internet", "code": "IT.NET.USER.ZS", "label": "Internet users", "unit": "% of people", "pairs": "technology", "source": "International Telecommunication Union"},
-    {
-        "id": "ext_debt", "code": "DT.DOD.DECT.GN.ZS", "label": "Foreign debt", "unit": "% of national income", "pairs": "debt",
-        "source": "International Debt Statistics",
-        "note": "Only covers low- and middle-income countries.",
-    },
-    {"id": "trade_gdp", "code": "NE.TRD.GNFS.ZS", "label": "Trade", "unit": "% of GDP", "pairs": "trade", "source": "national accounts data"},
-    {"id": "hunger", "code": "SN.ITK.DEFC.ZS", "label": "Undernourishment", "unit": "% of people", "pairs": "food_water", "source": "UN Food and Agriculture Organization"},
+    {"id": "population", "code": "SP.POP.TOTL", "label": "Population", "unit": "people", "format": "number", "group": PEOPLE, "source": "UN World Population Prospects", "keywords": "people size inhabitants"},
+    {"id": "density", "code": "EN.POP.DNST", "label": "Population density", "unit": "people per km² of land", "format": "number", "suffix": "/km²", "group": PEOPLE, "source": "UN World Population Prospects and FAO", "keywords": "crowded"},
+    {"id": "fertility", "code": "SP.DYN.TFRT.IN", "label": "Births per woman", "unit": "births per woman", "format": "number", "group": PEOPLE, "source": "UN World Population Prospects", "keywords": "fertility children babies"},
+    {"id": "over_65", "code": "SP.POP.65UP.TO.ZS", "label": "Aged 65 and over", "unit": "% of people", "format": "pct", "group": PEOPLE, "source": "UN World Population Prospects", "keywords": "old ageing elderly pensioners"},
+    {"id": "urban", "code": "SP.URB.TOTL.IN.ZS", "label": "Living in cities", "unit": "% of people", "format": "pct", "group": PEOPLE, "source": "UN World Urbanization Prospects", "keywords": "urban towns rural"},
+    {"id": "migrants", "code": "SM.POP.TOTL.ZS", "label": "Born abroad", "unit": "% of people", "format": "pct", "group": PEOPLE, "pairs": "migration", "carry": 5, "source": "UN Population Division", "keywords": "migrants immigrants foreign-born migration", "note": "Estimated every five years."},
+
+    {"id": "gdp", "code": "NY.GDP.MKTP.CD", "label": "Size of the economy (GDP)", "unit": "US$", "format": "usd", "group": ECONOMY, "source": "national accounts data", "keywords": "gdp economy output total"},
+    {"id": "gdp_pc", "code": "NY.GDP.PCAP.CD", "label": "GDP per person", "unit": "US$", "format": "usd", "group": ECONOMY, "pairs": "development", "source": "national accounts data", "keywords": "economy wealth income rich poor money"},
+    {"id": "growth", "code": "NY.GDP.MKTP.KD.ZG", "label": "Economic growth", "unit": "% a year", "format": "pct", "signed": True, "group": ECONOMY, "source": "national accounts data", "keywords": "gdp growth recession"},
+    {"id": "inflation", "code": "FP.CPI.TOTL.ZG", "label": "Inflation", "unit": "% a year, consumer prices", "format": "pct", "signed": True, "group": ECONOMY, "source": "IMF International Financial Statistics", "keywords": "prices cost of living"},
+    {"id": "unemployment", "code": "SL.UEM.TOTL.ZS", "label": "Unemployment", "unit": "% of workforce", "format": "pct", "group": ECONOMY, "source": "International Labour Organization estimates", "keywords": "jobs work jobless"},
+    {"id": "trade_gdp", "code": "NE.TRD.GNFS.ZS", "label": "Trade", "unit": "% of GDP", "format": "pct", "group": ECONOMY, "pairs": "trade", "source": "national accounts data", "keywords": "exports imports economy"},
+    {"id": "gov_debt", "code": "GC.DOD.TOTL.GD.ZS", "label": "Government debt", "unit": "% of GDP", "format": "pct", "group": ECONOMY, "source": "IMF Government Finance Statistics", "keywords": "public debt borrowing", "note": "Many countries don't report this."},
+    {"id": "ext_debt", "code": "DT.DOD.DECT.GN.ZS", "label": "Foreign debt", "unit": "% of national income", "format": "pct", "group": ECONOMY, "pairs": "debt", "source": "International Debt Statistics", "keywords": "debt loans borrowing external", "note": "Only covers low- and middle-income countries."},
+    {"id": "remittances", "code": "BX.TRF.PWKR.DT.GD.ZS", "label": "Money sent home from abroad", "unit": "% of GDP", "format": "pct", "group": ECONOMY, "source": "IMF Balance of Payments", "keywords": "remittances diaspora"},
+    {"id": "tourism", "code": "ST.INT.ARVL", "label": "Tourist arrivals", "unit": "visitors a year", "format": "number", "group": ECONOMY, "source": "UN Tourism", "keywords": "tourists travel visitors holiday"},
+
+    {"id": "gini", "code": "SI.POV.GINI", "label": "Income inequality (Gini)", "unit": "0 = equal, 100 = unequal", "format": "number", "group": POVERTY, "carry": 5, "source": "World Bank Poverty and Inequality Platform", "keywords": "gini inequality gap rich poor", "note": "Based on household surveys, run every few years."},
+    {"id": "poverty", "code": "SI.POV.DDAY", "label": "Extreme poverty", "unit": "% living on under $3 a day", "format": "pct", "group": POVERTY, "carry": 5, "source": "World Bank Poverty and Inequality Platform", "keywords": "poor poverty", "note": "Based on household surveys, run every few years. $3 a day at 2021 prices."},
+    {"id": "hunger", "code": "SN.ITK.DEFC.ZS", "label": "Undernourishment", "unit": "% of people", "format": "pct", "group": POVERTY, "pairs": "food_water", "source": "UN Food and Agriculture Organization", "keywords": "food famine malnutrition hunger"},
+
+    {"id": "life_exp", "code": "SP.DYN.LE00.IN", "label": "Life expectancy", "unit": "years at birth", "format": "number", "suffix": " yrs", "group": HEALTH, "pairs": "health", "source": "UN World Population Prospects", "keywords": "health lifespan age death"},
+    {"id": "child_deaths", "code": "SH.DYN.MORT", "label": "Child deaths", "unit": "under-5 deaths per 1,000 births", "format": "number", "group": HEALTH, "source": "UN Inter-agency Group for Child Mortality Estimation", "keywords": "child mortality babies infant"},
+    {"id": "health_spend", "code": "SH.XPD.CHEX.GD.ZS", "label": "Health spending", "unit": "% of GDP", "format": "pct", "group": HEALTH, "source": "World Health Organization", "keywords": "healthcare doctors hospitals"},
+    {"id": "water", "code": "SH.H2O.SMDW.ZS", "label": "Safe drinking water", "unit": "% of people", "format": "pct", "group": HEALTH, "source": "WHO/UNICEF Joint Monitoring Programme", "keywords": "water sanitation"},
+
+    {"id": "literacy", "code": "SE.ADT.LITR.ZS", "label": "Adult literacy", "unit": "% of people 15 and over", "format": "pct", "group": EDUCATION, "carry": 5, "source": "UNESCO Institute for Statistics", "keywords": "reading writing school", "note": "Many countries report this only occasionally."},
+    {"id": "edu_spend", "code": "SE.XPD.TOTL.GD.ZS", "label": "Education spending", "unit": "% of GDP", "format": "pct", "group": EDUCATION, "carry": 3, "source": "UNESCO Institute for Statistics", "keywords": "schools teachers government"},
+
+    {"id": "co2_pc", "code": "EN.GHG.CO2.PC.CE.AR5", "label": "CO₂ emissions per person", "unit": "tonnes", "format": "number", "suffix": " t", "group": ENVIRONMENT, "pairs": "climate", "source": "EDGAR, EU Joint Research Centre", "keywords": "carbon co2 emissions pollution greenhouse climate"},
+    {"id": "renewables", "code": "EG.FEC.RNEW.ZS", "label": "Renewable energy", "unit": "% of energy used", "format": "pct", "group": ENVIRONMENT, "source": "IEA, IRENA, UN Statistics Division", "keywords": "solar wind hydro green clean energy"},
+    {"id": "electricity", "code": "EG.ELC.ACCS.ZS", "label": "Access to electricity", "unit": "% of people", "format": "pct", "group": ENVIRONMENT, "source": "World Bank Global Electrification Database", "keywords": "power energy"},
+    {"id": "forest", "code": "AG.LND.FRST.ZS", "label": "Forest", "unit": "% of land", "format": "pct", "group": ENVIRONMENT, "source": "UN Food and Agriculture Organization", "keywords": "trees deforestation woods"},
+    {"id": "air", "code": "EN.ATM.PM25.MC.M3", "label": "Air pollution (PM2.5)", "unit": "µg per m³, yearly average", "format": "number", "suffix": " µg", "group": ENVIRONMENT, "source": "Global Burden of Disease study", "keywords": "air quality smog pm2.5 particles"},
+
+    {"id": "internet", "code": "IT.NET.USER.ZS", "label": "Internet users", "unit": "% of people", "format": "pct", "group": TECHNOLOGY, "pairs": "technology", "source": "International Telecommunication Union", "keywords": "online digital web technology"},
+    {"id": "mobile", "code": "IT.CEL.SETS.P2", "label": "Mobile phone subscriptions", "unit": "per 100 people", "format": "number", "group": TECHNOLOGY, "source": "International Telecommunication Union", "keywords": "cell phones mobiles smartphones"},
+
+    {"id": "women_parl", "code": "SG.GEN.PARL.ZS", "label": "Women in parliament", "unit": "% of seats", "format": "pct", "group": SOCIETY, "pairs": "gender", "source": "Inter-Parliamentary Union", "keywords": "women gender parliament politics"},
+    {"id": "homicides", "code": "VC.IHR.PSRC.P5", "label": "Murder rate", "unit": "homicides per 100,000 people", "format": "number", "group": SOCIETY, "source": "UN Office on Drugs and Crime", "keywords": "homicide murder crime violence safety"},
 ]
 
 # The World Bank's code for Kosovo differs from the one on our map.
 CODE_FIXES = {"XKX": "KOS"}
 
 
-def get(url, attempts=4):
+def get(url, attempts=5):
     for attempt in range(attempts):
         try:
             with urllib.request.urlopen(url, timeout=120) as response:
                 return json.load(response)
-        except OSError:
+        except (OSError, ValueError):  # ValueError: the API sometimes sends a half-empty reply
             if attempt == attempts - 1:
                 raise
             time.sleep(5 * (attempt + 1))
 
 
 def real_countries():
-    """World Bank codes for actual countries, leaving out groups like 'World' or 'Euro area'."""
+    """Region and income group for actual countries, leaving out groups like 'World' or 'Euro area'."""
     rows = get(f"{API}/country?format=json&per_page=500")[1]
-    return {row["id"] for row in rows if row["region"]["value"] != "Aggregates"}
+    return {
+        CODE_FIXES.get(row["id"], row["id"]): [row["region"]["value"].strip(), row["incomeLevel"]["value"].strip()]
+        for row in rows
+        if row["region"]["value"] != "Aggregates"
+    }
 
 
 def round_sig(value, digits=3):
@@ -65,13 +122,18 @@ def round_sig(value, digits=3):
 def main():
     # The site keeps topics and indicators in one list, so their ids must differ.
     from topics import TOPICS
-    clashes = {i["id"] for i in INDICATORS} & {t["id"] for t in TOPICS}
+    topic_ids = {t["id"] for t in TOPICS}
+    clashes = {i["id"] for i in INDICATORS} & topic_ids
     if clashes:
         raise SystemExit(f"Indicator ids clash with topic ids: {clashes}")
+    paired = [i["pairs"] for i in INDICATORS if "pairs" in i]
+    if len(paired) != len(set(paired)) or not set(paired) <= topic_ids:
+        raise SystemExit(f"Each speech topic can be paired with at most one indicator: {paired}")
 
-    countries = real_countries()
+    regions = real_countries()
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    index = []
+    STATS.mkdir(parents=True, exist_ok=True)
+    index, world, by_country = [], {}, {}
 
     for indicator in INDICATORS:
         last_year = time.gmtime().tm_year
@@ -81,10 +143,10 @@ def main():
         )[1]
         values = {}
         for row in rows:
-            code = row["countryiso3code"]
-            if row["value"] is None or code not in countries:
+            code = CODE_FIXES.get(row["countryiso3code"], row["countryiso3code"])
+            if row["value"] is None or code not in regions:
                 continue
-            values.setdefault(CODE_FIXES.get(code, code), {})[row["date"]] = round_sig(row["value"])
+            values.setdefault(code, {})[row["date"]] = round_sig(row["value"])
 
         if len(values) < 100:
             raise SystemExit(f"{indicator['code']}: only {len(values)} countries came back — refusing to overwrite")
@@ -93,11 +155,28 @@ def main():
         with (OUTPUT / f"{indicator['id']}.json").open("w") as f:
             json.dump({"years": [years[0], years[-1]], "values": values}, f, separators=(",", ":"), sort_keys=True)
 
+        # The median country each year, once enough countries report to make it meaningful.
+        per_year = {}
+        for series in values.values():
+            for year, v in series.items():
+                per_year.setdefault(year, []).append(v)
+        world[indicator["id"]] = {y: round_sig(statistics.median(vs)) for y, vs in sorted(per_year.items()) if len(vs) >= 20}
+        for code, series in values.items():
+            by_country.setdefault(code, {})[indicator["id"]] = series
+
         index.append({**indicator, "years": [years[0], years[-1]]})
-        print(f"{indicator['id']:11} {len(values):3} countries, {years[0]}–{years[-1]}")
+        print(f"{indicator['id']:13} {len(values):3} countries, {years[0]}–{years[-1]}")
 
     with (OUTPUT / "index.json").open("w") as f:
         json.dump(index, f, indent=1, ensure_ascii=False)
+    with (OUTPUT / "world.json").open("w") as f:
+        json.dump(world, f, separators=(",", ":"), sort_keys=True)
+    for code, stats in by_country.items():
+        with (STATS / f"{code}.json").open("w") as f:
+            json.dump(stats, f, separators=(",", ":"), sort_keys=True)
+    with (DATA / "regions.json").open("w") as f:
+        json.dump({code: regions[code] for code in sorted(by_country)}, f, separators=(",", ":"), ensure_ascii=False)
+    print(f"Wrote {len(by_country)} country files")
 
 
 if __name__ == "__main__":

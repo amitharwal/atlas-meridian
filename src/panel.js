@@ -1,5 +1,6 @@
 // The small pop-overs: the top-10 list and the country card.
 import { miniChart } from './chart.js';
+import { againstMedian, KEY_FACTS, versus } from './format.js';
 
 // Tiny element builder; text always goes in as text, never as HTML.
 function h(tag, attrs = {}, ...children) {
@@ -15,16 +16,6 @@ function h(tag, attrs = {}, ...children) {
 const pct = (v) => `${v.toFixed(1)}%`;
 // Lower-case a label for use mid-sentence, unless it starts with an acronym (CO₂, UN).
 const midSentence = (text) => (/^[A-Z]{2}/.test(text) ? text : text.charAt(0).toLowerCase() + text.slice(1));
-
-// "3.6× world avg", "+40% vs world avg", "≈ world avg", "−40% vs world avg".
-function versus(value, typical, what) {
-  if (!(typical > 0)) return '';
-  const ratio = value / typical;
-  if (ratio >= 1.95) return `${ratio.toFixed(1)}× ${what}`;
-  if (ratio >= 1.1) return `+${Math.round((ratio - 1) * 100)}% vs ${what}`;
-  if (ratio > 0.9) return `≈ ${what}`;
-  return `−${Math.round((1 - ratio) * 100)}% vs ${what}`;
-}
 
 // The world figure for a year, or the closest earlier one within two years.
 function worldAt(layer, year) {
@@ -43,7 +34,7 @@ function closeButton(label, onclick) {
 
 // ---- Top 10 ---------------------------------------------------------------
 
-export function renderRankings(container, { layer, year, rows, title, nameOf, onCountry }) {
+export function renderRankings(container, { layer, year, rows, title, fullUrl, nameOf, onCountry }) {
   // For the speaker layer a top-10 makes no sense; count who spoke instead.
   if (layer.kind === 'speaker') {
     const counts = [0, 0, 0, 0];
@@ -90,14 +81,30 @@ export function renderRankings(container, { layer, year, rows, title, nameOf, on
           ),
         )
       : h('p', { class: 'popover-title' }, `No data for ${year}.`),
+    fullUrl ? h('a', { class: 'rank-more', href: fullUrl }, `All ${rows.length} countries →`) : null,
   );
 }
 
 // ---- Country card -----------------------------------------------------------
 
+// A figure from a country's own stats file for a year, or the latest one within
+// the indicator's carry-forward window: { value, year } or null.
+function statAt(stats, indicator, year) {
+  const series = stats?.[indicator.id];
+  if (!series) return null;
+  for (let y = year; y >= year - indicator.carry; y--) {
+    if (series[y] !== undefined) return { value: series[y], year: y };
+  }
+  return null;
+}
+
+const metric = (value, label, compare) =>
+  h('div', {}, h('div', { class: 'metric-value' }, value), h('div', { class: 'metric-label' }, label), compare ? h('div', { class: 'metric-compare' }, compare) : null);
+
 export function renderCard(container, ctx) {
-  const { iso, year, topics, speeches, detail, continent, nameOf, focus, showDetails } = ctx;
+  const { iso, year, topics, speeches, detail, continent, nameOf, focus, showDetails, layer } = ctx;
   const { topic, indicator } = focus;
+  const onUnMap = layer.kind !== 'indicator';
   const byYear = speeches.shares[iso];
   const name = nameOf(iso, year);
   const todayName = nameOf(iso, 9999);
@@ -111,66 +118,94 @@ export function renderCard(container, ctx) {
       h('div', {}, h('p', { class: 'card-kicker' }, [continent, year].filter(Boolean).join(' · ')), h('h2', { class: 'card-title' }, name)),
       closeButton('Close', ctx.onClose),
     ),
-    name !== todayName ? h('p', { class: 'card-note' }, `Seat now held by ${todayName}`) : null,
-    ctx.speaker ? h('p', { class: 'card-speaker' }, `Speech by ${ctx.speaker}`) : null,
+    name !== todayName ? h('p', { class: 'card-note' }, `UN seat now held by ${todayName}`) : null,
+    onUnMap && ctx.speaker ? h('p', { class: 'card-speaker' }, `Speech by ${ctx.speaker}`) : null,
   ];
 
-  // The two headline numbers: what they said, and what the numbers show.
-  // In "who talks about whom" they're about mentions instead.
+  // The headline numbers: whatever the map is showing, and what goes with it.
   const metrics = [];
   const m = ctx.mentions;
   if (m && iso === m.target) {
-    metrics.push(
-      h('div', {}, h('div', { class: 'metric-value' }, String(m.mentioners)), h('div', { class: 'metric-label' }, `countries named ${name} in ${year}`)),
-    );
+    metrics.push(metric(String(m.mentioners), `countries named ${name} in ${year}`));
   } else if (m) {
     metrics.push(
-      h(
-        'div',
-        {},
-        h('div', { class: 'metric-value' }, m.count === null ? '—' : String(m.count)),
-        h('div', { class: 'metric-label' }, m.count === null ? `No speech in ${year}` : `mention${m.count === 1 ? '' : 's'} of ${m.targetName}`),
+      metric(m.count === null ? '—' : String(m.count), m.count === null ? `No speech in ${year}` : `mention${m.count === 1 ? '' : 's'} of ${m.targetName}`),
+      metric(String(m.mentioners), `countries named ${m.targetName}`),
+    );
+  } else if (layer.kind === 'indicator') {
+    const now = layer.value(iso, year);
+    metrics.push(
+      metric(
+        now ? layer.format(now.value) : '—',
+        `${layer.label}${now ? '' : `: no figure for ${year}`}`,
+        now ? [againstMedian(layer, layer.format, now.value, worldAt(layer, now.year), 'world median'), now.year !== year ? ` (${now.year})` : ''] : null,
       ),
-      h('div', {}, h('div', { class: 'metric-value' }, String(m.mentioners)), h('div', { class: 'metric-label' }, `countries named ${m.targetName}`)),
     );
   } else if (byYear) {
     const now = topic.value(iso, year);
     metrics.push(
-      h(
-        'div',
-        {},
-        h('div', { class: 'metric-value' }, now ? pct(now.value) : '—'),
-        h('div', { class: 'metric-label' }, now ? `of speech on ${topic.short}` : `No speech in ${year}`),
-        now ? h('div', { class: 'metric-compare' }, versus(now.value, worldAt(topic, year), 'world avg')) : null,
+      metric(
+        now ? pct(now.value) : '—',
+        now ? `of UN speech on ${topic.short}` : `No UN speech in ${year}`,
+        now ? versus(now.value, worldAt(topic, year), 'world avg') : null,
       ),
     );
-  }
-  if (indicator && !m) {
-    const now = indicator.ready ? indicator.value(iso, year) : null;
-    metrics.push(
-      h(
-        'div',
-        {},
-        h('div', { class: 'metric-value' }, now ? indicator.format(now.value) : '—'),
-        h('div', { class: 'metric-label' }, indicator.label),
-        h(
-          'div',
-          { class: 'metric-compare' },
-          !indicator.ready
-            ? 'Loading…'
-            : now
-              ? [versus(now.value, worldAt(indicator, now.year), 'median'), now.year !== year ? ` (${now.year})` : '']
-              : `No figure for ${year}`,
+    // A speech topic's matching statistic, e.g. climate talk and CO₂ per person.
+    if (indicator) {
+      const stat = statAt(ctx.stats, indicator, year);
+      const typical = ctx.worldMedians?.[indicator.id];
+      metrics.push(
+        metric(
+          stat ? indicator.format(stat.value) : '—',
+          indicator.label,
+          !ctx.stats ? 'Loading…' : stat ? [versus(stat.value, typical?.[stat.year], 'median'), stat.year !== year ? ` (${stat.year})` : ''] : `No figure for ${year}`,
         ),
-      ),
-    );
+      );
+    }
   }
   if (metrics.length) parts.push(h('div', { class: 'metrics' }, metrics));
-  else parts.push(h('p', { class: 'card-note' }, 'No speeches or figures for this place.'));
+  else if (!ctx.stats || !Object.keys(ctx.stats).length) parts.push(h('p', { class: 'card-note' }, ctx.stats ? 'No figures for this place.' : 'Loading…'));
 
-  // One quote, on the chosen topic if the speech has one.
+  // Key facts for every country, at the chosen year.
+  const facts = KEY_FACTS.map((id) => ctx.indicators[id]).filter((ind) => ind && ind.id !== layer.id);
+  if (ctx.stats && Object.keys(ctx.stats).length) {
+    parts.push(
+      h(
+        'dl',
+        { class: 'facts' },
+        facts.map((ind) => {
+          const stat = statAt(ctx.stats, ind, year);
+          return h(
+            'div',
+            {},
+            h('dt', {}, ind.label),
+            h('dd', {}, h('button', { type: 'button', class: 'fact-value', title: `Colour the map by ${ind.label.toLowerCase()}`, onclick: () => ctx.onLayer(ind.id) }, stat ? ind.format(stat.value) : '—')),
+          );
+        }),
+      ),
+    );
+  }
+
+  // On a statistic with a matching speech topic, one line on what the country said.
+  if (!onUnMap && topic && byYear?.[year]) {
+    const said = topic.value(iso, year);
+    const compared = versus(said.value, worldAt(topic, year), 'world avg');
+    parts.push(
+      h(
+        'p',
+        { class: 'card-un' },
+        h('span', { class: 'card-un-label' }, 'At the UN '),
+        `${pct(said.value)} of its ${year} speech was on ${topic.short} `,
+        compared ? h('span', { class: 'metric-compare' }, `(${compared})`) : null,
+        ' ',
+        h('button', { type: 'button', class: 'link-button', onclick: () => ctx.onLayer(topic.id) }, 'Map it'),
+      ),
+    );
+  }
+
+  // One quote, on UN maps, on the chosen topic if the speech has one.
   const quotes = thisYear?.quotes ?? [];
-  const lead = quotes.find((q) => q.topic === topic.id) ?? quotes[0];
+  const lead = onUnMap ? (quotes.find((q) => q.topic === topic.id) ?? quotes[0]) : null;
   if (lead) {
     // If the speech had nothing to quote on the chosen topic, say which topic this one is on.
     if (lead.topic !== topic.id) parts.push(h('p', { class: 'quote-topic' }, `On ${midSentence(labelOf[lead.topic])}`));
@@ -178,7 +213,7 @@ export function renderCard(container, ctx) {
   }
 
   // Everything else waits behind "Details".
-  const hasMore = byYear || (indicator?.ready && Object.keys(indicator.series(iso)).length);
+  const hasMore = byYear || (layer.kind === 'indicator' && Object.keys(layer.series(iso)).length) || ctx.stats;
   const actions = [];
   if (hasMore) {
     actions.push(
@@ -190,14 +225,17 @@ export function renderCard(container, ctx) {
       ),
     );
   }
-  // Who mentions this country? Switches the map to that view.
-  if (!m || m.target !== iso) {
+  // Every country with figures or speeches has its own page.
+  if (byYear || (ctx.stats && Object.keys(ctx.stats).length)) {
     actions.push(
-      h('button', { type: 'button', class: 'details-toggle', onclick: () => ctx.onMentions(iso) }, `Who mentions ${todayName}?`),
+      h('a', { class: 'details-toggle', href: ctx.profileUrl }, 'Full profile', h('span', { 'aria-hidden': 'true' }, '→')),
+      h('a', { class: 'details-toggle', href: ctx.compareUrl }, 'Compare'),
     );
   }
-  // Every country that has spoken at the UN has its own profile page.
-  if (byYear) actions.push(h('a', { class: 'details-toggle', href: ctx.profileUrl }, 'Full profile', h('span', { 'aria-hidden': 'true' }, '→')));
+  // Who mentions this country? Switches the map to that view.
+  if (onUnMap && (!m || m.target !== iso)) {
+    actions.push(h('button', { type: 'button', class: 'details-toggle', onclick: () => ctx.onMentions(iso) }, `Who mentions ${todayName}?`));
+  }
   if (actions.length) parts.push(h('div', { class: 'card-actions' }, actions));
   if (showDetails && hasMore) parts.push(details(ctx, todayName, quotes, lead, labelOf));
 
@@ -205,50 +243,82 @@ export function renderCard(container, ctx) {
 }
 
 function details(ctx, todayName, quotes, lead, labelOf) {
-  const { iso, year, topics, speeches, nameOf, focus } = ctx;
+  const { iso, year, topics, speeches, nameOf, focus, layer } = ctx;
   const { topic, indicator } = focus;
+  const onUnMap = layer.kind !== 'indicator';
   const byYear = speeches.shares[iso];
   const sections = [];
 
   // Over time: the country against the world.
   const charts = [];
-  if (byYear) {
+  const statChart = (ind) => {
+    const series = ctx.stats?.[ind.id];
+    const world = ctx.worldMedians?.[ind.id];
+    if (!series || !world || !Object.keys(series).length) return null;
+    return h(
+      'div',
+      {},
+      miniChart({
+        country: series, world, years: speeches.years, year, onPickYear: ctx.onYear,
+        label: `${todayName}'s ${midSentence(ind.label)} over time, against the world median`,
+      }),
+      h('div', { class: 'chart-caption' }, ind.label),
+    );
+  };
+  const speechChart = () => {
+    if (!byYear || !topic) return null;
     const series = {};
     for (const yr of Object.keys(byYear)) series[yr] = topic.value(iso, yr).value;
-    charts.push(
-      h(
-        'div',
-        {},
-        miniChart({
-          country: series, world: topic.world, years: speeches.years, year, onPickYear: ctx.onYear,
-          label: `${todayName}'s share of speech on ${topic.short} over time, against the world average`,
-        }),
-        h('div', { class: 'chart-caption' }, `Speech on ${topic.short}`),
-      ),
+    return h(
+      'div',
+      {},
+      miniChart({
+        country: series, world: topic.world, years: speeches.years, year, onPickYear: ctx.onYear,
+        label: `${todayName}'s share of UN speech on ${topic.short} over time, against the world average`,
+      }),
+      h('div', { class: 'chart-caption' }, `UN speech on ${topic.short}`),
     );
-  }
-  if (indicator?.ready && Object.keys(indicator.series(iso)).length) {
-    charts.push(
-      h(
-        'div',
-        {},
-        miniChart({
-          country: indicator.series(iso), world: indicator.world, years: speeches.years, year, onPickYear: ctx.onYear,
-          label: `${todayName}'s ${midSentence(indicator.label)} over time, against the world median`,
-        }),
-        h('div', { class: 'chart-caption' }, indicator.label),
-      ),
-    );
-  }
-  if (charts.length) {
+  };
+  if (onUnMap) charts.push(speechChart(), indicator ? statChart(indicator) : null);
+  else charts.push(statChart(layer), topic ? speechChart() : null);
+  if (charts.some(Boolean)) {
     sections.push(
-      h('div', {}, h('p', { class: 'section-label' }, `${speeches.years[0]}–${speeches.years[1]} · dashed = world`), h('div', { class: 'charts' }, charts)),
+      h('div', {}, h('p', { class: 'section-label' }, `${speeches.years[0]}–${speeches.years[1]} · dashed = world`), h('div', { class: 'charts' }, charts.filter(Boolean))),
     );
+  }
+
+  // On a statistic: the rest of its group, so it's one click to the next map.
+  if (!onUnMap && ctx.stats) {
+    const siblings = Object.values(ctx.indicators).filter((ind) => ind.group === layer.group && ind.id !== layer.id);
+    const rows = siblings
+      .map((ind) => ({ ind, stat: statAt(ctx.stats, ind, year) }))
+      .filter(({ stat }) => stat);
+    if (rows.length) {
+      sections.push(
+        h(
+          'div',
+          {},
+          h('p', { class: 'section-label' }, `More on ${midSentence(layer.group)} · ${year}`),
+          h(
+            'div',
+            { class: 'stat-rows' },
+            rows.map(({ ind, stat }) =>
+              h(
+                'button',
+                { type: 'button', class: 'topic-row', title: `Colour the map by ${ind.label.toLowerCase()}`, onclick: () => ctx.onLayer(ind.id) },
+                h('span', { class: 'topic-name' }, ind.label),
+                h('span', { class: 'rank-value' }, ind.format(stat.value) + (stat.year !== year ? ` (${stat.year})` : '')),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   // What else they talked about this year.
   const shares = byYear?.[year];
-  if (shares) {
+  if (onUnMap && shares) {
     const ranked = topics
       .map((t, i) => ({ ...t, value: shares[i] / 10 }))
       .filter((t) => t.value > 0)
@@ -259,7 +329,7 @@ function details(ctx, todayName, quotes, lead, labelOf) {
       h(
         'div',
         {},
-        h('p', { class: 'section-label' }, `Topics in ${year}`),
+        h('p', { class: 'section-label' }, `UN speech topics in ${year}`),
         h(
           'div',
           { class: 'topic-rows' },
@@ -284,7 +354,7 @@ function details(ctx, todayName, quotes, lead, labelOf) {
   }
 
   const thisYear = ctx.detail?.years[year];
-  if (thisYear?.allies.length) {
+  if (onUnMap && thisYear?.allies.length) {
     sections.push(
       h(
         'div',
@@ -299,7 +369,7 @@ function details(ctx, todayName, quotes, lead, labelOf) {
     );
   }
 
-  const others = quotes.filter((q) => q !== lead);
+  const others = onUnMap ? quotes.filter((q) => q !== lead) : [];
   if (others.length) {
     sections.push(
       h(
@@ -311,7 +381,8 @@ function details(ctx, todayName, quotes, lead, labelOf) {
     );
   }
 
-  if (indicator) sections.push(h('p', { class: 'source' }, `${indicator.label}: ${indicator.source}, via the World Bank.`));
+  const source = onUnMap ? indicator : layer;
+  if (source) sections.push(h('p', { class: 'source' }, `${source.label} (${source.unit}): ${source.source}, via the World Bank.${source.note ? ` ${source.note}` : ''}`));
 
   return h('div', { class: 'details' }, sections);
 }

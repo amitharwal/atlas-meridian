@@ -1,20 +1,16 @@
-// Everything the map can be coloured by: speech topics and World Bank indicators.
-// Each layer knows how to look up a country's value, how to format it and where
-// its colour scale should start and stop.
+// Everything the map can be coloured by: World Bank indicators and UN speech
+// topics. Each layer knows how to look up a country's value, how to format it
+// and where its colour scale should start and stop.
 import { loadJson, speakerLabel } from './data.js';
+import { formatter } from './format.js';
 
 // Indicator figures often lag a year or two behind. Rather than turning the map
-// grey for the latest years, show the most recent figure up to this many years old.
+// grey for the latest years, show the most recent figure up to this many years
+// old (longer for surveys run every few years; see `carry` in build_indicators.py).
 const CARRY_FORWARD_YEARS = 2;
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumSignificantDigits: 3 });
-
-function formatter(unit) {
-  if (unit === 'US$') return (v) => `$${compact.format(v)}`;
-  if (unit === 'tonnes') return (v) => `${v < 10 ? v.toFixed(1) : Math.round(v)} t`;
-  if (unit === 'years') return (v) => `${v.toFixed(1)} yrs`;
-  return (v) => `${v < 10 ? v.toFixed(1) : Math.round(v)}%`;
-}
+// The picker's group for everything from the UN speeches.
+export const UN_GROUP = 'At the UN';
 
 // How each topic reads inside a sentence ("…spent 14% of their speech on climate").
 const SHORT = {
@@ -65,6 +61,7 @@ export function makeLayers({ topics, speeches, indicators }) {
       kind: 'topic',
       id: topic.id,
       label: topic.label,
+      group: UN_GROUP,
       short: SHORT[topic.id] ?? topic.label.toLowerCase(),
       stops: [0, 0.25, 0.5, 0.75, 1].map((f) => f * top),
       format: (v) => `${v.toFixed(1)}%`,
@@ -84,7 +81,8 @@ export function makeLayers({ topics, speeches, indicators }) {
     const layer = {
       kind: 'indicator',
       ...indicator,
-      format: formatter(indicator.unit),
+      format: formatter(indicator),
+      carry: indicator.carry ?? CARRY_FORWARD_YEARS,
       worldLabel: 'World median',
       ready: false,
       data: null,
@@ -112,7 +110,7 @@ export function makeLayers({ topics, speeches, indicators }) {
       value(iso, year) {
         const series = layer.data?.[iso];
         if (!series) return null;
-        for (let y = year; y >= year - CARRY_FORWARD_YEARS; y--) {
+        for (let y = year; y >= year - layer.carry; y--) {
           if (series[y] !== undefined) return { value: series[y], year: y };
         }
         return null;
@@ -138,6 +136,7 @@ function mentionsLayer(speeches) {
   const layer = {
     kind: 'mentions',
     id: 'mentions',
+    group: UN_GROUP,
     label: 'Who talks about whom',
     target: null,
     stops: [0, 1, 3, 6, 10],
@@ -182,6 +181,7 @@ function speakerLayer() {
   const layer = {
     kind: 'speaker',
     id: 'speaker',
+    group: UN_GROUP,
     label: 'Who gave the speech',
     years: [1994, 2025],
     // Ranks 0–3 spread across the whole colour scale.

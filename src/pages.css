@@ -1,0 +1,460 @@
+/* The text pages that scroll: rankings and compare. Same colours as the map. */
+@import './tokens.css';
+@import './nav.css';
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--select);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px 16px 64px;
+}
+
+h1 {
+  margin: 0;
+  font: 600 32px/1.15 'Source Serif 4', Georgia, serif;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font: 600 20px/1.3 'Source Serif 4', Georgia, serif;
+}
+
+.sub {
+  margin: 6px 0 20px;
+  color: var(--text-soft);
+}
+
+.note {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: 12px;
+}
+
+/* ---- Filters ---- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-sunk);
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.control-wide {
+  flex: 1 1 260px;
+}
+
+.control select,
+.control input {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-soft);
+  font: 500 13px 'IBM Plex Sans', system-ui, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pill:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.swap {
+  min-height: 36px;
+  font-size: 16px;
+}
+
+/* ---- Rankings ---- */
+
+.table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.table-head .note {
+  flex: 1 1 320px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rank-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-table th {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.rank-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rank-table td a {
+  text-decoration: none;
+}
+
+.rank-table td a:hover {
+  text-decoration: underline;
+}
+
+.rank-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.num {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.bar-col {
+  width: 34%;
+}
+
+.bar {
+  display: block;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: var(--bar);
+}
+
+/* ---- Compare ---- */
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+
+.swatch-a {
+  background: var(--series-a);
+}
+
+.swatch-b {
+  background: var(--series-b);
+}
+
+.swatch-world {
+  height: 0;
+  border-top: 2px dashed var(--text-muted);
+  border-radius: 0;
+  vertical-align: middle;
+}
+
+.whos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.who {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--series-a);
+  border-radius: 10px;
+  background: var(--surface-sunk);
+}
+
+.who-b {
+  border-top-color: var(--series-b);
+}
+
+.who h2 {
+  margin: 0;
+}
+
+.who p {
+  margin: 2px 0 10px;
+}
+
+.who-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.who-facts dt {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.who-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend .swatch {
+  margin-left: 10px;
+}
+
+.legend .swatch:first-child {
+  margin-left: 0;
+}
+
+.group {
+  margin-top: 28px;
+}
+
+.pair-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.pair-table th,
+.pair-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.pair-table thead th {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pair-table tbody th {
+  width: 30%;
+  font-weight: 500;
+}
+
+.pair-table tbody th a {
+  text-decoration: none;
+}
+
+.pair-table tbody th a:hover {
+  text-decoration: underline;
+}
+
+.chart-col {
+  width: 34%;
+}
+
+.pair-chart {
+  display: block;
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+  cursor: crosshair;
+}
+
+.pair-a,
+.pair-b,
+.pair-world {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.pair-a {
+  stroke: var(--series-a);
+}
+
+.pair-b {
+  stroke: var(--series-b);
+}
+
+.pair-world {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.pair-zero {
+  stroke: var(--line);
+  vector-effect: non-scaling-stroke;
+}
+
+.pair-now {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.chart-tip[hidden] {
+  display: none;
+}
+
+.tip-year {
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.un-table td {
+  width: 70%;
+}
+
+.pair-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.pair-bar {
+  display: block;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+}
+
+.bar-a {
+  background: var(--series-a);
+}
+
+.bar-b {
+  background: var(--series-b);
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 26px;
+  }
+
+  .whos {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-col {
+    width: 26%;
+  }
+
+  /* On phones each measure's chart goes on its own line under the figures,
+     and each figure's colour square says whose it is. */
+  .pair-table,
+  .pair-table tbody {
+    display: block;
+  }
+
+  .pair-table thead {
+    display: none;
+  }
+
+  .pair-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .pair-table tbody th,
+  .pair-table tbody td {
+    border-bottom: 0;
+  }
+
+  .pair-table tbody th {
+    width: auto;
+  }
+
+  .pair-table tbody td.chart-col {
+    grid-column: 1 / -1;
+    width: auto;
+    padding-top: 0;
+  }
+
+  .un-table tbody tr {
+    grid-template-columns: 1fr;
+  }
+
+  .un-table td {
+    width: auto;
+  }
+}

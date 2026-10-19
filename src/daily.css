@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './nav.css';
 
 * {
   box-sizing: border-box;
@@ -19,26 +20,6 @@ button {
 :focus-visible {
   outline: 2px solid var(--select);
   outline-offset: 2px;
-}
-
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 18px 20px 0;
-}
-
-.brand {
-  color: var(--text);
-  font: 600 18px 'Source Serif 4', Georgia, serif;
-  text-decoration: none;
-}
-
-.back {
-  color: var(--text-soft);
-  font-size: 14px;
 }
 
 .app {

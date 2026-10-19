@@ -5,9 +5,15 @@ export default defineConfig({
   // GitHub Pages, which serves it from a sub-folder named after the repository.
   base: './',
   build: {
-    // Two pages: the map, and the daily puzzle at /daily/.
+    // The map, plus the pages under /daily/, /rankings/ and /compare/. (Country
+    // pages are built separately by pipeline/build_profiles.mjs.)
     rollupOptions: {
-      input: { main: 'index.html', daily: 'daily/index.html' },
+      input: {
+        main: 'index.html',
+        daily: 'daily/index.html',
+        rankings: 'rankings/index.html',
+        compare: 'compare/index.html',
+      },
     },
   },
 });

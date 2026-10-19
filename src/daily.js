@@ -2,7 +2,10 @@
 // Everyone gets the same five on the same day, chosen by a random generator
 // seeded with the date. Results are kept on the visitor's own device only.
 import { withThe } from './data.js';
+import { fillNav } from './nav.js';
 import './daily.css';
+
+fillNav('../');
 
 const ROUNDS = 5;
 const CHOICES = 4;

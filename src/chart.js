@@ -11,16 +11,20 @@ function el(name, attrs = {}) {
   return node;
 }
 
-// An SVG path through `series` (year -> value), broken wherever a year is missing.
+// Gaps up to this many years are bridged, since some figures (migrants,
+// surveys) are only published every few years. Longer gaps break the line.
+export const MAX_GAP = 5;
+
+// An SVG path through `series` (year -> value), broken where years are missing.
 export function linePath(series, [first, last], top, w, h) {
   let d = '';
   let drawing = false;
+  let lastSeen = -Infinity;
   for (let year = first; year <= last; year++) {
     const v = series[year];
-    if (v === undefined) {
-      drawing = false;
-      continue;
-    }
+    if (v === undefined) continue;
+    if (year - lastSeen > MAX_GAP) drawing = false;
+    lastSeen = year;
     const x = ((year - first) / (last - first)) * w;
     const y = h - (Math.min(v, top) / top) * h;
     d += `${drawing ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;

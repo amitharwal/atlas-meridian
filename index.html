@@ -3,41 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="80 years of UN speeches on a map: see what every country talks about at the United Nations, and how its words compare with the numbers." />
-    <title>Atlas Meridian · What the world says at the UN</title>
+    <meta name="description" content="A free world map of country statistics: population, economy, health, education, environment and more, plus 80 years of what every country said at the UN." />
+    <title>Atlas Meridian · The world in numbers</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
 
     <!-- What chat apps and social sites show when the link is shared -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://amitharwal.github.io/atlas-meridian/" />
-    <meta property="og:title" content="Atlas Meridian · What the world says at the UN" />
-    <meta property="og:description" content="80 years of UN speeches on a map: see what every country talks about at the United Nations, and how its words compare with the numbers." />
+    <meta property="og:title" content="Atlas Meridian · The world in numbers" />
+    <meta property="og:description" content="A free world map of country statistics: population, economy, health, education, environment and more, plus 80 years of what every country said at the UN." />
     <meta property="og:image" content="https://amitharwal.github.io/atlas-meridian/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="A world map shaded by how much each country spoke about climate change at the UN in 2021" />
+    <meta property="og:image:alt" content="A world map of countries shaded by a statistic" />
     <meta name="twitter:card" content="summary_large_image" />
 
     <!-- Start downloading the data straight away, alongside the code -->
     <link rel="preload" href="./data/countries.topo.json" as="fetch" crossorigin />
     <link rel="preload" href="./data/speeches.json" as="fetch" crossorigin />
+    <link rel="preload" href="./data/indicators/life_exp.json" as="fetch" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <header class="site-nav" data-page="map"></header>
+    <h1 class="visually-hidden">Atlas Meridian: a world map of country statistics</h1>
     <div id="map" aria-label="Interactive map of the world's countries"></div>
 
     <!-- Shown until the map is ready (or if the data can't be loaded) -->
     <div id="loading" class="loading" role="status">Loading the map…</div>
 
-    <!-- Top left: name, what the map shows, and its colour key -->
+    <!-- Top left: what the map shows, its colour key, and country search -->
     <div class="hud hud-left">
       <div class="control-group">
-        <div class="brand-block">
-          <h1 class="brand">Atlas Meridian</h1>
-          <p class="tagline">What countries say at the UN, 1946–2025</p>
-        </div>
         <button id="layer-button" class="layer-button" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="picker">
           <span id="layer-label"></span>
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
@@ -59,15 +58,15 @@
       <div id="picker" class="popover picker" hidden>
         <div class="search">
           <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-          <input id="layer-search" type="search" placeholder="Search" autocomplete="off" aria-label="Search topics and data" />
+          <input id="layer-search" type="search" placeholder="Search 50+ maps" autocomplete="off" aria-label="Search everything the map can show" />
         </div>
+        <div id="layer-groups" class="layer-groups" role="group" aria-label="Show one group"></div>
         <div id="layer-list" class="layer-list"></div>
       </div>
     </div>
 
     <!-- Top right: rankings and about -->
     <div class="hud hud-right">
-      <button id="stories-button" class="text-control" type="button" aria-expanded="false" aria-controls="stories">Stories</button>
       <button id="share-button" class="icon-control" type="button" aria-label="Copy a link to this view" title="Copy a link to this view">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
       </button>
@@ -80,28 +79,6 @@
     </div>
 
     <section id="rankings" class="popover rankings" aria-label="Top countries" hidden></section>
-
-    <section id="stories" class="popover stories" aria-label="Stories" hidden>
-      <p class="popover-title">Start with a story</p>
-      <ol id="story-list" class="story-list"></ol>
-      <a class="daily-link" href="./daily/">Play today’s puzzle: <strong>Who said it?</strong> →</a>
-    </section>
-
-    <!-- The caption shown while a story is open -->
-    <section id="story-bar" class="popover story-bar" aria-live="polite" hidden>
-      <div class="story-head">
-        <p id="story-count" class="story-count"></p>
-        <div class="story-nav">
-          <button id="story-prev" class="story-step" type="button" aria-label="Previous story">‹ Prev</button>
-          <button id="story-next" class="story-step" type="button" aria-label="Next story">Next ›</button>
-          <button id="story-close" class="close" type="button" aria-label="Close story">
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-          </button>
-        </div>
-      </div>
-      <h2 id="story-title" class="story-title"></h2>
-      <p id="story-text" class="story-text"></p>
-    </section>
 
     <aside id="card" class="popover country-card" aria-label="Country details" hidden></aside>
 
@@ -123,26 +100,33 @@
 
     <div id="tooltip" class="tooltip" hidden></div>
 
-    <!-- A one-time pointer to the stories for first-time visitors -->
-    <div id="hint" class="hint" hidden>
-      <button id="hint-open" class="hint-open" type="button">New here? Start with a story</button>
-      <button id="hint-close" class="close" type="button" aria-label="Dismiss">
-        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-      </button>
-    </div>
-
     <div id="toast" class="toast" role="status" hidden></div>
 
     <dialog id="about" class="about card">
       <button id="about-close" class="icon-control about-close" type="button" aria-label="Close">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
       </button>
-      <h2>About this data</h2>
-      <p>Every September, each UN member gives a speech at the General Assembly's General Debate.
-        Atlas Meridian reads every one of them, from 1946 to 2025 (over 11,000 speeches), and
-        maps what each country chose to talk about.</p>
+      <h2>About Atlas Meridian</h2>
+      <p>Atlas Meridian is a free world map of country statistics. Pick any of 34 measures (population,
+        the economy, health, education, the environment, technology and more), slide through the years
+        since 1960, and click a country for its key facts, its trend and how it compares with the rest
+        of the world. The <a href="./rankings/">Rankings</a> page lists every country for any measure, and
+        <a href="./compare/">Compare</a> puts two countries side by side.</p>
 
-      <h3>How it works</h3>
+      <h3>Where the numbers come from</h3>
+      <p>All the statistics come from <a href="https://data.worldbank.org/" target="_blank" rel="noopener">World Bank Open Data</a>,
+        which collects them from the UN, the IMF, the WHO, UNESCO and other agencies (each measure names its
+        original source). They are updated automatically each month.</p>
+      <p>Official figures often arrive a year or two late. Where the chosen year has no figure yet, the map
+        shows the most recent one from up to two years earlier and says so. Surveys run every few years, such
+        as inequality, poverty and literacy, may show a figure up to five years old. Some places, such as
+        Taiwan, aren't covered by the World Bank. "World median" is the middle country that year, not a
+        population-weighted average.</p>
+
+      <h3>What countries say at the UN</h3>
+      <p>Every September, each UN member gives a speech at the General Assembly's General Debate.
+        The "At the UN" maps read every one of them, from 1946 to 2025 (over 11,000 speeches), and show
+        what each country chose to talk about.</p>
       <p>Each speech is split into short passages of about 60 words. A small language model
         sorts each passage into one of 16 topics, or into none if it's ceremonial (thanking the
         President, and so on). A country's share for a topic is the percentage of its passages
@@ -151,17 +135,6 @@
         <em>talking about the same things</em>, not friendship: in 1985 the USA's closest match
         was the Soviet Union, because both spoke mostly about each other and about arms control.</p>
 
-      <h3>What the numbers show</h3>
-      <p>Eight World Bank measures sit alongside the speeches, each paired with a speech topic,
-        so you can compare what a country says with what the numbers show: GDP per person
-        (development), CO₂ emissions per person (climate), life expectancy (health), women in
-        parliament (gender), internet users (technology), foreign debt (debt), trade (trade) and
-        undernourishment (food). They are updated automatically each month.</p>
-      <p>Official figures often arrive a year or two late. Where the chosen year has no figure yet,
-        the map shows the most recent one from up to two years earlier and says so. Foreign debt
-        is only reported for low- and middle-income countries, and some places, such as Taiwan,
-        aren't covered by the World Bank.</p>
-
       <h3>Who spoke, and who talks about whom</h3>
       <p>Speakers' names come from the corpus. Their titles are recorded consistently from 1994, and are
         grouped into four ranks (head of state or government, deputy leader, foreign minister, other).</p>
@@ -169,12 +142,12 @@
         and former names (Zaire, Kampuchea). It counts names, not adjectives ("Israel", not "Israeli"),
         and skips names that could mean two countries, such as "Congo" or "Korea" on their own.</p>
 
-      <h3>How accurate is it?</h3>
+      <h3>How accurate are the speech topics?</h3>
       <p>When checked against hand-sorted passages, the model agrees about <strong>71%</strong>
         of the time. It's strongest on peace, democracy, development and gender, and weakest on
         terrorism, debt and food. Treat single numbers as rough and trends as more reliable.
-        The hand-sorted passages used to train and test it were labelled by an AI assistant
-        (Claude), not by human experts.</p>
+        The hand-sorted passages used to train and test it were labelled by an AI assistant,
+        not by human experts.</p>
 
       <h3>Things to know</h3>
       <ul>
@@ -193,14 +166,14 @@
         <li>Speeches: <a href="https://doi.org/10.7910/DVN/0TJX8Y" target="_blank" rel="noopener">UN General Debate Corpus</a>
           (CC0). Jankin, Baturo &amp; Dasandi (2025), <em>Journal of Peace Research</em> 62(4);
           Baturo, Dasandi &amp; Mikhaylov (2017), <em>Research &amp; Politics</em>.</li>
-        <li>Indicators: <a href="https://data.worldbank.org/" target="_blank" rel="noopener">World Bank Open Data</a>
-          (CC BY 4.0), drawing on the UN, EDGAR, the Inter-Parliamentary Union, the ITU and the FAO.
+        <li>Statistics: <a href="https://data.worldbank.org/" target="_blank" rel="noopener">World Bank Open Data</a>
+          (CC BY 4.0), drawing on the UN, the IMF, the WHO, UNESCO, the ILO, EDGAR, the Inter-Parliamentary Union, the ITU, the FAO and others.
           Military spending is not included because its source (SIPRI) does not allow republishing
           the full data set.</li>
         <li>Borders: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a> (public domain).</li>
         <li>Topic model: <a href="https://huggingface.co/BAAI/bge-small-en-v1.5" target="_blank" rel="noopener">bge-small-en-v1.5</a> by BAAI.</li>
       </ul>
-      <p><a href="./country/">Browse all 200 country profiles →</a> · <a href="./daily/">Play the daily “Who said it?” puzzle →</a></p>
+      <p><a href="./country/">Browse every country →</a> · <a href="./daily/">Play the daily “Who said it?” puzzle →</a></p>
       <p class="about-foot">Atlas Meridian is free and open source under the MIT licence.</p>
     </dialog>
 

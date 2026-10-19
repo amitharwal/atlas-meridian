@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compare countries · Atlas Meridian</title>
+    <meta name="description" content="Put any two countries side by side: population, economy, health, education, environment and what they say at the UN." />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://amitharwal.github.io/atlas-meridian/compare/" />
+    <meta property="og:title" content="Compare countries · Atlas Meridian" />
+    <meta property="og:description" content="Any two countries side by side, across 34 World Bank measures and their UN speeches." />
+    <meta property="og:image" content="https://amitharwal.github.io/atlas-meridian/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="site-nav is-static" data-page="compare"></header>
+    <main class="page">
+      <h1>Compare countries</h1>
+      <p class="sub">Two countries side by side. Charts show both since 1960, with the median country dashed.</p>
+
+      <form class="controls" onsubmit="return false">
+        <label class="control control-wide"><span><span class="swatch swatch-a" aria-hidden="true"></span>First country</span> <select id="pick-a"></select></label>
+        <button id="swap" class="pill swap" type="button" aria-label="Swap the two countries">⇄</button>
+        <label class="control control-wide"><span><span class="swatch swatch-b" aria-hidden="true"></span>Second country</span> <select id="pick-b"></select></label>
+      </form>
+
+      <p id="status" class="note" role="status">Loading…</p>
+      <div id="comparison"></div>
+    </main>
+    <div id="chart-tip" class="chart-tip" hidden></div>
+    <script type="module" src="/src/compare.js"></script>
+  </body>
+</html>

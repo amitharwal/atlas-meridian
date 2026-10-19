@@ -1,7 +1,11 @@
 // Loading the generated data files and naming the countries in them.
 
-// Built from BASE_URL so it still works when hosted under a sub-path (GitHub Pages).
-export const dataUrl = (path) => new URL(`${import.meta.env.BASE_URL}data/${path}`, location.href).href;
+// Relative to this code file, not the page, so it works from every page (/,
+// /rankings/, …) and under GitHub Pages' sub-path. The file sits one folder
+// below the site root both while developing (src/) and once built (assets/).
+// (Kept in a variable: Vite rewrites `new URL(…, import.meta.url)` as an asset import.)
+const here = import.meta.url;
+export const dataUrl = (path) => new URL(`../data/${path}`, here).href;
 
 export async function loadJson(path) {
   const response = await fetch(dataUrl(path));

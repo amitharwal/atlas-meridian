@@ -4,11 +4,14 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { feature } from 'topojson-client';
 import { drawSparkline } from './chart.js';
 import { loadJson, makeNamer, shapeInfo, slugOf } from './data.js';
-import { makeLayers, pairOf, ranking } from './layers.js';
+import { grouped } from './format.js';
+import { makeLayers, pairOf, ranking, UN_GROUP } from './layers.js';
+import { fillNav } from './nav.js';
 import { renderCard, renderRankings } from './panel.js';
 import { makeSearch } from './search.js';
-import { STORIES } from './stories.js';
 import './style.css';
+
+fillNav('./');
 
 // MapLibre 6 needs to be told where its background worker lives when bundled by Vite.
 setWorkerUrl(workerUrl);
@@ -59,23 +62,24 @@ const [FIRST_YEAR, LAST_YEAR] = speeches.years;
 const phone = matchMedia('(max-width: 640px)');
 
 // What's on screen. Kept in the address bar so any view can be shared as a link.
-// Climate is the opening view: it changes the most visibly over time.
-const state = { layer: 'climate', year: LAST_YEAR, country: null, details: false, story: null, lastTopic: 'climate' };
+// Life expectancy is the opening view: easy to read, and almost every country has it.
+const DEFAULT_LAYER = 'life_exp';
+const state = { layer: DEFAULT_LAYER, year: LAST_YEAR, country: null, details: false, lastTopic: 'climate' };
 const params = new URLSearchParams(location.hash.slice(1));
 if (layers[params.get('layer')]) state.layer = params.get('layer');
 // "Who talks about whom" needs a country to be about.
 if (state.layer === 'mentions') {
   const target = params.get('target');
   if (speeches.shares[target] || centreOf[target]) layers.mentions.target = target;
-  else state.layer = 'climate';
+  else state.layer = DEFAULT_LAYER;
 }
 if (layers[state.layer].kind === 'topic') state.lastTopic = state.layer;
 if (+params.get('year') >= FIRST_YEAR && +params.get('year') <= LAST_YEAR) state.year = +params.get('year');
+// With no year in the link, open on the latest year the chosen measure has.
+else if (layers[state.layer].years) state.year = Math.min(LAST_YEAR, layers[state.layer].years[1]);
 if (speeches.shares[params.get('country')] || centreOf[params.get('country')]) state.country = params.get('country');
 
 function saveToUrl() {
-  // A story link is just the story; everything else follows from it.
-  if (state.story !== null) return history.replaceState(null, '', `#story=${STORIES[state.story].id}`);
   const p = new URLSearchParams({ layer: state.layer, year: state.year });
   if (state.layer === 'mentions') p.set('target', layers.mentions.target);
   if (state.country) p.set('country', state.country);
@@ -97,8 +101,13 @@ function rampColor(stops) {
   ];
 }
 
-// The name shown on the topic button.
-const titleOf = (layer) => (layer.kind === 'mentions' ? `Mentions of ${nameOf(layer.target, 9999)}` : layer.label);
+// The name shown on the layer button. Speech topics say so, since "Climate
+// change & environment" could otherwise be mistaken for a statistic.
+function titleOf(layer) {
+  if (layer.kind === 'mentions') return `Mentions of ${nameOf(layer.target, 9999)}`;
+  if (layer.kind === 'topic') return `UN speeches: ${layer.label}`;
+  return layer.label;
+}
 
 // The opening view: centred on Europe and Africa, close enough that the
 // screen is never wider than one copy of the world (no Alaska twice), and
@@ -111,7 +120,7 @@ const noRepeatZoom = () => Math.log2((innerWidth * 1.05) / 512);
 
 function homeView() {
   const [north, south] = [72, -50];
-  const top = phone.matches ? 130 : 70;
+  const top = phone.matches ? 180 : 120; // below the menu bar and the top-left panel
   const bottom = phone.matches ? 80 : 90;
   const span = mercatorY(south) - mercatorY(north);
   const fitHeight = Math.log2((innerHeight - top - bottom) / (span * 512));
@@ -199,7 +208,7 @@ map.on('resize', updateMinZoom);
 // Bottom left, so the country card on the right never covers them.
 map.addControl(new NavigationControl({ showCompass: false }), 'bottom-left');
 map.addControl(
-  new AttributionControl({ compact: true, customAttribution: 'Speeches: UN General Debate Corpus · Data: World Bank (CC BY 4.0) · Borders: Natural Earth' }),
+  new AttributionControl({ compact: true, customAttribution: 'Data: World Bank (CC BY 4.0) · Speeches: UN General Debate Corpus · Borders: Natural Earth' }),
   'bottom-left',
 );
 
@@ -209,12 +218,11 @@ function clearArea() {
   const box = (el) => (el && !el.hidden ? el.getBoundingClientRect() : null);
   const panel = box(document.querySelector('.control-group'));
   const cardBox = box(document.getElementById('card'));
-  const story = box(document.getElementById('story-bar'));
   const bar = box(document.getElementById('timeline'));
   // On phones the card sits above the year bar and can grow once its quote
   // loads, so plan for its full height (45% of the screen, see style.css).
   const cardTop = phone.matches && cardBox ? Math.min(cardBox.top, (bar?.top ?? innerHeight) - 10 - innerHeight * 0.45) : null;
-  const bottomEdge = Math.min(...[bar?.top, story?.top, cardTop].filter((v) => v != null), innerHeight);
+  const bottomEdge = Math.min(...[bar?.top, cardTop].filter((v) => v != null), innerHeight);
   const padding = { top: 16, bottom: innerHeight - bottomEdge + 12, left: 16, right: 16 };
   if (phone.matches) padding.top = (panel?.bottom ?? 0) + 12;
   else if (cardBox) padding.right = innerWidth - cardBox.left + 12;
@@ -279,7 +287,7 @@ function paintLayer() {
     layer.kind === 'mentions'
       ? `How many times each country's speech named ${nameOf(layer.target, 9999)} that year`
       : layer.kind === 'topic'
-      ? "Share of each country's speech spent on this topic"
+      ? "Share of each country's UN speech spent on this topic"
       : layer.kind === 'speaker'
         ? 'How senior the person who gave the speech was. Titles are recorded from 1994.'
         : `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank`;
@@ -324,10 +332,7 @@ mapReady.then(async () => {
   keepYearInRange(layers[state.layer]);
   paintLayer();
   loading.hidden = true;
-  showHintOnce();
-  const story = STORIES.findIndex((st) => st.id === params.get('story'));
-  if (story >= 0) openStory(story);
-  else if (state.country) selectCountry(state.country);
+  if (state.country) selectCountry(state.country);
 });
 
 // ---- Pop-overs: only one open at a time -----------------------------------
@@ -337,14 +342,8 @@ const layerButton = document.getElementById('layer-button');
 const rankings = document.getElementById('rankings');
 const rankButton = document.getElementById('rank-button');
 const card = document.getElementById('card');
-const storiesBox = document.getElementById('stories');
-const storiesButton = document.getElementById('stories-button');
 
 function closePopovers(except) {
-  if (except !== storiesBox) {
-    storiesBox.hidden = true;
-    storiesButton.setAttribute('aria-expanded', 'false');
-  }
   if (except !== picker) {
     picker.hidden = true;
     layerButton.setAttribute('aria-expanded', 'false');
@@ -463,33 +462,52 @@ const normaliseSearch = (text) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+// Extra words people might search with. Indicators bring their own from the pipeline.
 const KEYWORDS = {
-  gdp_pc: 'economy wealth income rich poor money',
-  co2_pc: 'carbon co2 emissions pollution greenhouse climate',
-  life_exp: 'health lifespan age death',
-  women_parl: 'women gender parliament politics',
-  internet: 'online digital web technology',
-  ext_debt: 'debt loans borrowing',
-  trade_gdp: 'exports imports economy',
-  hunger: 'food famine malnutrition hunger',
   speaker: 'leader president prime minister speaker who spoke',
   mentions: 'mentions talks about countries names whom',
 };
+const keywordsOf = (layer) => layer.keywords ?? KEYWORDS[layer.id] ?? '';
+
+// The picker's groups: the statistics first, then everything from the speeches.
+const GROUPS = [
+  ...grouped(indicators).map(([title, items]) => [title, items.map((i) => layers[i.id])]),
+  [UN_GROUP, [...topics.map((t) => layers[t.id]), layers.speaker, layers.mentions]],
+];
+// The group chip that's switched on; null shows every group.
+let pickedGroup = null;
+
+const groupChips = document.getElementById('layer-groups');
+function buildChips() {
+  const chips = [null, ...GROUPS.map(([title]) => title)].map((title) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'group-chip';
+    chip.textContent = title ?? 'All';
+    chip.setAttribute('aria-pressed', String(title === pickedGroup));
+    chip.addEventListener('click', () => {
+      pickedGroup = title;
+      buildChips();
+      buildList();
+      layerList.scrollTop = 0;
+    });
+    return chip;
+  });
+  groupChips.replaceChildren(...chips);
+}
 
 function buildList() {
   const q = normaliseSearch(search.value);
-  const groups = [
-    ['What countries say', topics.map((t) => layers[t.id])],
-    ['Who spoke', [layers.speaker, layers.mentions]],
-    ['What the numbers show', indicators.map((i) => layers[i.id])],
-  ];
+  // Searching looks through every group, whichever chip is on.
+  groupChips.hidden = Boolean(q);
   const nodes = [];
-  for (const [title, items] of groups) {
-    const shown = items.filter((l) => !q || normaliseSearch(`${l.label} ${l.short ?? ''} ${KEYWORDS[l.id] ?? ''}`).includes(q));
+  for (const [title, items] of GROUPS) {
+    if (!q && pickedGroup && title !== pickedGroup) continue;
+    const shown = items.filter((l) => !q || normaliseSearch(`${l.label} ${l.short ?? ''} ${l.group} ${keywordsOf(l)}`).includes(q));
     if (!shown.length) continue;
     const heading = document.createElement('div');
     heading.className = 'layer-group';
-    heading.textContent = title;
+    heading.textContent = title === UN_GROUP ? 'At the UN · share of speech on…' : title;
     nodes.push(heading);
     for (const layer of shown) {
       const button = document.createElement('button');
@@ -502,7 +520,7 @@ function buildList() {
       if (layer.kind === 'indicator') {
         const meta = document.createElement('span');
         meta.className = 'layer-meta';
-        meta.textContent = layer.unit.replace('national ', '');
+        meta.textContent = layer.unit;
         button.append(meta);
       }
       button.addEventListener('click', () => {
@@ -531,6 +549,9 @@ layerButton.addEventListener('click', () => {
   layerButton.setAttribute('aria-expanded', String(open));
   if (open) {
     search.value = '';
+    // Open on the group of whatever the map is showing now.
+    pickedGroup = layers[state.layer].group;
+    buildChips();
     buildList();
     const current = layerList.querySelector('[aria-pressed="true"]');
     if (current) layerList.scrollTop = current.offsetTop - layerList.clientHeight / 2;
@@ -540,7 +561,6 @@ layerButton.addEventListener('click', () => {
 
 async function setLayer(id) {
   if (layers[id].kind === 'topic') state.lastTopic = id;
-  if (!applyingStory) endStory();
   state.layer = id;
   layerLabel.textContent = layers[id].kind === 'mentions' && !layers[id].target ? layers[id].label : titleOf(layers[id]);
   saveToUrl();
@@ -560,10 +580,7 @@ function keepYearInRange(layer) {
   if (state.year >= first && state.year <= last) return;
   const year = state.year < first ? first : last;
   const message = `${titleOf(layer)}: figures ${state.year < first ? `start in ${first}` : `end in ${last}`}, so showing ${year}`;
-  const wasApplying = applyingStory;
-  applyingStory = true; // part of the same change, not a new one
   setYear(year);
-  applyingStory = wasApplying;
   showToast(message);
 }
 
@@ -587,6 +604,7 @@ function refreshRankings() {
     year: state.year,
     rows: ranking(layer, state.year, codes).filter((row) => layer.kind !== 'mentions' || row.value > 0),
     title: layer.kind === 'mentions' ? `Named ${nameOf(layer.target, 9999)} most · ${state.year}` : null,
+    fullUrl: layer.kind === 'indicator' || layer.kind === 'topic' ? `rankings/#layer=${layer.id}&year=${state.year}` : null,
     nameOf,
     onCountry: (iso) => {
       closePopovers();
@@ -641,7 +659,6 @@ function showYear() {
 }
 
 function setYear(year) {
-  if (!applyingStory) endStory();
   state.year = year;
   showYear();
   if (state.country) label.textContent = nameOf(state.country, year);
@@ -731,7 +748,21 @@ map.on('click', (e) => {
 
 // ---- Country card -------------------------------------------------------
 
-const details = {}; // iso3 -> loaded detail file, fetched the first time it's needed
+const details = {}; // iso3 -> loaded speech detail file, fetched the first time it's needed
+const stats = {}; // iso3 -> every World Bank figure for that country (data/stats/), likewise
+let worldMedians = null; // indicator id -> year -> the median country's figure
+
+// A country's own figures for every indicator, for the key facts on its card.
+function loadStats(iso) {
+  if (iso in stats) return;
+  stats[iso] = null;
+  const median = (worldMedians ??= loadJson('indicators/world.json').catch(() => ({})));
+  Promise.all([loadJson(`stats/${iso}.json`).catch(() => ({})), median]).then(([own, world]) => {
+    stats[iso] = own;
+    worldMedians = world;
+    if (state.country === iso) refreshCard();
+  });
+}
 
 // While a country is chosen, every other country fades back and a name label
 // is pinned on the map, so it's obvious which one the card is about.
@@ -755,12 +786,10 @@ function spotlight(iso) {
 }
 
 function selectCountry(iso) {
-  if (!applyingStory) endStory();
   setState(state.country, { selected: false });
   state.country = iso;
   setState(iso, { selected: true });
   spotlight(iso);
-  hint.hidden = true; // out of the card's way; it can come back next visit
   rankings.hidden = true;
   rankButton.setAttribute('aria-expanded', 'false');
   card.hidden = false;
@@ -774,6 +803,7 @@ function selectCountry(iso) {
     const zoom = Math.max(map.getZoom(), homeZoom + (smallPlaces.has(iso) ? 1.3 : 0.3));
     requestAnimationFrame(() => map.flyTo({ center: centreOf[iso], zoom, padding: clearArea(), speed: 0.8 }));
   }
+  loadStats(iso);
   if (speeches.shares[iso] && !(iso in details)) {
     details[iso] = null;
     loadJson(`countries/${iso}.json`)
@@ -785,7 +815,6 @@ function selectCountry(iso) {
   }
 }
 
-// Closing the card doesn't end a story; the reader can keep reading it.
 function closeCountry() {
   setState(state.country, { selected: false });
   state.country = null;
@@ -799,14 +828,17 @@ function refreshCard() {
   if (!state.country || !layer.ready) return;
   const focus = pairOf(layers, layer, state.lastTopic);
   // The card names who gave the speech; that list loads the first time it's needed.
-  if (!layers.speaker.ready) layers.speaker.load().then(refreshCard);
-  if (focus.indicator && !focus.indicator.ready) focus.indicator.load().then(refreshCard);
+  if (layer.kind !== 'indicator' && !layers.speaker.ready) layers.speaker.load().then(refreshCard);
   renderCard(card, {
     iso: state.country,
     year: state.year,
     topics,
     speeches,
     detail: details[state.country],
+    stats: stats[state.country],
+    worldMedians: worldMedians instanceof Promise ? null : worldMedians,
+    indicators: Object.fromEntries(indicators.map((i) => [i.id, layers[i.id]])),
+    layer,
     continent: continentOf[state.country],
     nameOf,
     focus,
@@ -822,6 +854,7 @@ function refreshCard() {
       : null,
     onMentions: (iso) => showMentions(iso),
     profileUrl: `country/${slugOf(nameOf(state.country, 9999))}/`,
+    compareUrl: `compare/#a=${state.country}`,
     onToggleDetails: () => {
       state.details = !state.details;
       refreshCard();
@@ -838,125 +871,11 @@ function refreshCard() {
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || about.open) return;
-  if (!picker.hidden || !rankings.hidden || !storiesBox.hidden) closePopovers();
-  else if (state.story !== null) endStory();
+  if (!picker.hidden || !rankings.hidden) closePopovers();
   else if (state.country) closeCountry();
 });
 
-// ---- Stories ----------------------------------------------------------------
-
-const storyBar = document.getElementById('story-bar');
-const storyPrev = document.getElementById('story-prev');
-const storyNext = document.getElementById('story-next');
-// Set while a story is setting up the map, so those changes don't end the story.
-// Any change the reader makes themselves does end it.
-let applyingStory = false;
-
-document.getElementById('story-list').append(
-  ...STORIES.map((story, i) => {
-    const item = document.createElement('li');
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'story-item';
-    const n = document.createElement('span');
-    n.className = 'rank-n';
-    n.textContent = i + 1;
-    const title = document.createElement('span');
-    title.textContent = story.title;
-    const year = document.createElement('span');
-    year.className = 'story-year';
-    year.textContent = story.year;
-    button.append(n, title, year);
-    button.addEventListener('click', () => {
-      closePopovers();
-      openStory(i);
-    });
-    item.append(button);
-    return item;
-  }),
-);
-
-storiesButton.addEventListener('click', () => {
-  const open = storiesBox.hidden;
-  closePopovers(storiesBox);
-  storiesBox.hidden = !open;
-  storiesButton.setAttribute('aria-expanded', String(open));
-});
-
-function openStory(i) {
-  const story = STORIES[i];
-  applyingStory = true;
-  stopPlaying();
-  state.details = Boolean(story.details);
-  setYear(story.year);
-  const layerReady = setLayer(story.layer);
-  if (story.country) {
-    selectCountry(story.country);
-  } else {
-    closeCountry();
-  }
-  applyingStory = false;
-
-  state.story = i;
-  document.getElementById('story-count').textContent = `Story ${i + 1} of ${STORIES.length}`;
-  document.getElementById('story-title').textContent = story.title;
-  document.getElementById('story-text').textContent = story.text;
-  storyPrev.disabled = i === 0;
-  storyNext.disabled = i === STORIES.length - 1;
-  storyBar.hidden = false;
-  document.body.classList.add('has-story');
-  // Frame the story's part of the world above the caption, once it's on screen.
-  requestAnimationFrame(() => {
-    document.documentElement.style.setProperty('--story-top', `${storyBar.getBoundingClientRect().top}px`);
-    if (!story.country) {
-      map.flyTo({
-        center: story.center ?? homeView().center,
-        zoom: homeZoom + (story.zoom ?? 0),
-        padding: clearArea(),
-        speed: 0.8,
-      });
-    }
-  });
-  saveToUrl();
-  return layerReady;
-}
-
-function endStory() {
-  if (state.story === null) return;
-  state.story = null;
-  storyBar.hidden = true;
-  document.body.classList.remove('has-story');
-  saveToUrl();
-}
-
-storyPrev.addEventListener('click', () => openStory(state.story - 1));
-storyNext.addEventListener('click', () => openStory(state.story + 1));
-document.getElementById('story-close').addEventListener('click', endStory);
-
-// ---- First-visit hint and "copy link" -------------------------------------
-
-const hint = document.getElementById('hint');
-const HINT_KEY = 'atlas-meridian:seen-hint';
-
-// Shown once per browser. Storage can be unavailable (private browsing), in
-// which case the hint simply shows each visit.
-function showHintOnce() {
-  try {
-    if (localStorage.getItem(HINT_KEY)) return;
-  } catch {}
-  if (state.story === null) hint.hidden = false;
-}
-
-function dismissHint() {
-  hint.hidden = true;
-  try {
-    localStorage.setItem(HINT_KEY, '1');
-  } catch {}
-}
-
-document.getElementById('hint-close').addEventListener('click', dismissHint);
-document.getElementById('hint-open').addEventListener('click', () => storiesButton.click());
-storiesButton.addEventListener('click', dismissHint);
+// ---- "Copy link" ---------------------------------------------------------
 
 const toast = document.getElementById('toast');
 let toastTimer = null;
