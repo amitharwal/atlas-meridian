@@ -1,21 +1,34 @@
-// "Who said it?": a daily puzzle of five real quotes from UN speeches.
-// Everyone gets the same five on the same day, chosen by a random generator
-// seeded with the date. Results are kept on the visitor's own device only.
-import { withThe } from './data.js';
+// "Guess the Country": a daily map game. One country is highlighted on a
+// blank world map; name it in up to three guesses. Five rounds a day, one from
+// each difficulty tier (pipeline/build_game.mjs), easiest first. Everyone gets
+// the same five on the same day. Results are kept on the player's own device.
+import { Map, NavigationControl, setWorkerUrl } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import { feature } from 'topojson-client';
+import { loadJson, makeNamer, shapeInfo, slugOf, withThe } from './data.js';
+import { formatter } from './format.js';
 import { fillNav } from './nav.js';
+import { makeSearch } from './search.js';
 import './daily.css';
 
 fillNav('../');
+setWorkerUrl(workerUrl);
 
 const ROUNDS = 5;
-const CHOICES = 4;
-// Puzzle #1 was published on this day; each day after is the next number.
-const FIRST_DAY = new Date(2026, 9, 12);
+const GUESSES = 3;
+const LEVELS = ['Very easy', 'Easy', 'Medium', 'Hard', 'Very hard'];
+// Game #1 is on this day; each day after is the next number.
+const FIRST_DAY = new Date(2026, 9, 19);
 const SITE = 'https://amitharwal.github.io/atlas-meridian/daily/';
-const STORE = 'atlas-meridian:daily:';
+const STORE = 'atlas-meridian:country-game:';
+// One coloured square per round in the shared result: first, second, third guess, missed.
+const SQUARES = ['🟩', '🟨', '🟧', '⬛'];
 
-const app = document.getElementById('app');
-const toast = document.getElementById('toast');
+const $ = (id) => document.getElementById(id);
+const panel = $('panel');
+const toast = $('toast');
+const mapStatus = $('map-status');
 
 // ---- Small helpers ----------------------------------------------------------
 
@@ -50,13 +63,13 @@ function shuffle(items, rand) {
   return out;
 }
 
-// Today's puzzle number, counted in the visitor's own time zone.
-function puzzleNumber(date = new Date()) {
+// Today's game number, counted in the player's own time zone.
+function gameNumber(date = new Date()) {
   const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.round((today - FIRST_DAY) / 86400000) + 1;
+  return Math.max(1, Math.round((today - FIRST_DAY) / 86400000) + 1);
 }
 
-// Local storage can be unavailable (private browsing); the puzzle still works.
+// Local storage can be unavailable (private browsing); the game still works.
 const saved = {
   get(n) {
     try {
@@ -72,155 +85,343 @@ const saved = {
   },
 };
 
+// Fill the panel, skipping empty parts.
+const fillPanel = (...parts) => panel.replaceChildren(...parts.flat(Infinity).filter(Boolean));
+
 function showToast(text) {
   toast.textContent = text;
   toast.hidden = false;
   setTimeout(() => (toast.hidden = true), 2000);
 }
 
-const TOPIC_LABELS = {
-  peace: 'Peace & conflict', nuclear: 'Nuclear weapons', terrorism: 'Terrorism', human_rights: 'Human rights',
-  democracy: 'Democracy', climate: 'Climate & environment', development: 'Development', trade: 'Trade & the economy',
-  debt: 'Debt & finance', decolonisation: 'Decolonisation', un_reform: 'UN reform', health: 'Health',
-  migration: 'Migration', food_water: 'Food & water', gender: 'Gender equality', technology: 'Technology',
-};
+// ---- Distance and direction -----------------------------------------------------
 
-// ---- The puzzle ---------------------------------------------------------------
+const toRad = (deg) => (deg * Math.PI) / 180;
 
-function nameIn(country, year) {
-  let name = country.names[0][1];
-  for (const [from, n] of country.names) if (year >= from) name = n;
-  return name;
+function distanceKm([lon1, lat1], [lon2, lat2]) {
+  const a = Math.sin(toRad(lat2 - lat1) / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lon2 - lon1) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(a));
 }
 
-// Five questions for a seed: different countries, each with three wrong
-// answers that also spoke at the UN that year (one from the same continent).
-function makeQuestions(data, seed) {
-  const rand = random(seed);
-  const used = new Set();
-  const questions = [];
-  for (const [iso, year, topic, text, speaker] of shuffle(data.quotes, rand)) {
-    if (used.has(iso)) continue;
-    used.add(iso);
-    const answer = data.countries[iso];
-    const spokeThatYear = Object.keys(data.countries).filter(
-      (code) => code !== iso && data.countries[code].years.includes(year),
-    );
-    const near = shuffle(spokeThatYear.filter((code) => data.countries[code].continent === answer.continent), rand);
-    const far = shuffle(spokeThatYear.filter((code) => data.countries[code].continent !== answer.continent), rand);
-    const wrong = [...near.slice(0, 1), ...far].slice(0, CHOICES - 1);
-    const options = shuffle([iso, ...wrong], rand).map((code) => ({ iso: code, name: nameIn(data.countries[code], year) }));
-    questions.push({ iso, year, topic, text, speaker, options, answerName: nameIn(answer, year) });
-    if (questions.length === ROUNDS) break;
+// Which way to head from the guess to the answer, as an arrow.
+function arrow([lon1, lat1], [lon2, lat2]) {
+  const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+  const bearing = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  return ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'][Math.round(bearing / 45) % 8];
+}
+
+const km = new Intl.NumberFormat('en', { maximumFractionDigits: 0 });
+
+// ---- Load everything ---------------------------------------------------------------
+
+let topology, game, regions, indicators;
+try {
+  [topology, game, regions, indicators] = await Promise.all([
+    loadJson('countries.topo.json'),
+    loadJson('game.json'),
+    loadJson('regions.json'),
+    loadJson('indicators/index.json'),
+  ]);
+} catch (error) {
+  mapStatus.textContent = 'Couldn’t load the game. Please check your connection and refresh the page.';
+  throw error;
+}
+const countries = feature(topology, topology.objects.countries);
+const nameOf = makeNamer(countries);
+const todayName = (iso) => nameOf(iso, 9999);
+const { centreOf, dots } = shapeInfo(countries);
+// Answers that would be hard to spot at world zoom get a ring around them:
+// island states (the map's dots) and anything whose main piece of land is
+// smaller than about 500 km across (in square degrees of its bounding box).
+const RING_AREA = 25;
+function mainLandArea({ geometry }) {
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+  let best = 0;
+  for (const [outer] of polygons) {
+    const xs = outer.map((p) => p[0]);
+    const ys = outer.map((p) => p[1]);
+    best = Math.max(best, (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)));
   }
-  return questions;
+  return best;
+}
+const smallPlaces = new Set([
+  ...dots.features.map((f) => f.properties.iso3),
+  ...countries.features.filter((f) => mainLandArea(f) < RING_AREA).map((f) => f.properties.iso3),
+]);
+const members = game.tiers.flat();
+const find = makeSearch(members, nameOf);
+const format = Object.fromEntries(indicators.map((i) => [i.id, formatter(i)]));
+
+// The five answers for a game: one from each tier. Each tier is worked
+// through in a shuffled order, so a country doesn't come back until the rest
+// of its tier has had a turn.
+function answersFor(number) {
+  return game.tiers.map((tier, t) => {
+    const day = number - 1;
+    const cycle = Math.floor(day / tier.length);
+    return shuffle(tier, random((t + 1) * 100003 + cycle))[day % tier.length];
+  });
 }
 
-// ---- Screens ------------------------------------------------------------------
-
-// Keyboard focus moves to the new screen's heading (not a button, which
-// would look like an answer was already picked).
-function render(...children) {
-  app.replaceChildren(...children.filter(Boolean));
-  const heading = app.querySelector('h1, .kicker');
-  heading?.setAttribute('tabindex', '-1');
-  heading?.focus({ preventScroll: true });
+// Five random countries, one per tier, for practice.
+function practiceAnswers() {
+  const rand = random(Math.floor(Math.random() * 1e9));
+  return game.tiers.map((tier) => tier[Math.floor(rand() * tier.length)]);
 }
 
-function intro(number, start) {
-  render(
-    h('p', { class: 'kicker' }, `Daily puzzle #${number}`),
-    h('h1', {}, 'Who said it?'),
-    h(
-      'p',
-      { class: 'lede' },
-      'Five real quotes from 80 years of speeches at the UN General Assembly. For each one, guess which country said it. ',
-      'The country’s own name is blanked out ',
-      h('span', { class: 'nowrap' }, '(▇▇▇).'),
-    ),
-    h('button', { type: 'button', class: 'primary', onclick: start }, 'Start'),
+// ---- The map ----------------------------------------------------------------
+
+const css = getComputedStyle(document.documentElement);
+const color = (name) => css.getPropertyValue(name).trim();
+const roleOf = ['coalesce', ['feature-state', 'role'], 'none'];
+
+const map = new Map({
+  container: 'map',
+  attributionControl: false,
+  renderWorldCopies: true,
+  // The whole world, centred so Pacific islands sit near the right-hand edge.
+  bounds: [
+    [-168, -56],
+    [192, 75],
+  ],
+  style: {
+    version: 8,
+    sources: {
+      countries: { type: 'geojson', data: countries, promoteId: 'iso3' },
+      // A ring around the answer when it's too small to see.
+      ring: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    },
+    layers: [
+      { id: 'ocean', type: 'background', paint: { 'background-color': color('--ocean') } },
+      {
+        id: 'land',
+        type: 'fill',
+        source: 'countries',
+        filter: ['!=', ['get', 'iso3'], 'ATA'],
+        paint: {
+          'fill-color': ['match', roleOf, 'answer', color('--target'), 'guess', color('--ramp-2'), color('--land')],
+        },
+      },
+      { id: 'borders', type: 'line', source: 'countries', paint: { 'line-color': color('--border'), 'line-width': 0.6 } },
+      {
+        id: 'answer-outline',
+        type: 'line',
+        source: 'countries',
+        paint: { 'line-color': color('--select'), 'line-width': 1.4, 'line-opacity': ['match', roleOf, 'answer', 1, 0] },
+      },
+      {
+        id: 'ring',
+        type: 'circle',
+        source: 'ring',
+        paint: {
+          'circle-radius': 16,
+          'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-color': color('--target'),
+          'circle-stroke-width': 3,
+        },
+      },
+    ],
+  },
+});
+map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right');
+map.dragRotate.disable();
+map.touchZoomRotate.disableRotation();
+const mapReady = new Promise((resolve) => map.on('load', resolve));
+mapReady.then(() => (mapStatus.hidden = true));
+
+let painted = [];
+function paint(answer, guesses, revealed) {
+  for (const iso of painted) map.setFeatureState({ source: 'countries', id: iso }, { role: 'none' });
+  painted = [answer, ...guesses];
+  for (const iso of guesses) map.setFeatureState({ source: 'countries', id: iso }, { role: 'guess' });
+  map.setFeatureState({ source: 'countries', id: answer }, { role: 'answer' });
+  map.getSource('ring').setData({
+    type: 'FeatureCollection',
+    features: smallPlaces.has(answer) ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: centreOf[answer] } }] : [],
+  });
+  if (revealed) map.flyTo({ center: centreOf[answer], zoom: Math.max(map.getZoom(), smallPlaces.has(answer) ? 4 : 2.5), speed: 0.9 });
+}
+
+function worldView() {
+  map.fitBounds(
+    [
+      [-168, -56],
+      [192, 75],
+    ],
+    { duration: 600 },
   );
 }
 
-function question(state, onAnswer) {
-  const q = state.questions[state.round];
-  const answered = state.answers[state.round];
-  const done = answered !== undefined;
+// ---- Rounds -------------------------------------------------------------------
 
-  const progress = h(
-    'ol',
-    { class: 'progress', 'aria-label': `Question ${state.round + 1} of ${ROUNDS}` },
-    state.questions.map((_, i) =>
-      h('li', {
-        class: i < state.answers.length ? (state.answers[i] ? 'right' : 'wrong') : i === state.round ? 'current' : '',
-      }),
-    ),
-  );
+// A round's outcome from its guesses: points 3/2/1 for the first, second or
+// third guess, 0 if missed; null while still being played.
+function outcome(answer, guesses) {
+  const hit = guesses.indexOf(answer);
+  if (hit >= 0) return GUESSES - hit;
+  return guesses.length >= GUESSES ? 0 : null;
+}
+const squareOf = (points) => SQUARES[GUESSES - points] ?? SQUARES[3];
 
-  const options = h(
-    'div',
-    { class: 'options' },
-    q.options.map((option) => {
-      let cls = 'option';
-      if (done && option.iso === q.iso) cls += ' is-right';
-      else if (done && option.iso === state.picked) cls += ' is-wrong';
-      return h(
-        'button',
-        { type: 'button', class: cls, disabled: done ? '' : null, onclick: () => onAnswer(option.iso) },
-        option.name,
-        done && option.iso === q.iso ? h('span', { class: 'mark', 'aria-label': 'correct' }, '✓') : null,
-        done && option.iso === state.picked && option.iso !== q.iso ? h('span', { class: 'mark', 'aria-label': 'your answer' }, '✗') : null,
-      );
+// The clues shown after each miss: the answer's region, then two figures.
+async function clues(iso) {
+  const stats = await loadJson(`stats/${iso}.json`).catch(() => ({}));
+  const latest = (id) => {
+    const series = stats[id];
+    if (!series) return null;
+    const year = Math.max(...Object.keys(series));
+    return format[id](series[year]);
+  };
+  const pop = latest('population');
+  const gdp = latest('gdp_pc');
+  return [
+    regions[iso] ? `Region: ${regions[iso][0]}` : null,
+    [pop && `Population: ${pop}`, gdp && `GDP per person: ${gdp}`].filter(Boolean).join(' · ') || null,
+  ];
+}
+
+function progress(state) {
+  $('progress').replaceChildren(
+    ...state.answers.map((answer, i) => {
+      const points = outcome(answer, state.guesses[i]);
+      return h('li', {
+        class: points === null ? (i === state.round ? 'current' : '') : points ? 'right' : 'wrong',
+        title: `Round ${i + 1}: ${LEVELS[i]}`,
+      });
     }),
   );
+}
 
-  const reveal = done
-    ? h(
-        'div',
-        { class: 'reveal' },
-        h('p', { class: 'verdict' }, answered ? 'Correct.' : `It was ${withThe(q.answerName)}.`),
+function guessBox(onGuess) {
+  const input = h('input', {
+    id: 'guess',
+    type: 'search',
+    placeholder: 'Type a country',
+    autocomplete: 'off',
+    spellcheck: 'false',
+    'aria-label': 'Your guess',
+    role: 'combobox',
+    'aria-expanded': 'false',
+    'aria-controls': 'guess-list',
+  });
+  const list = h('ul', { id: 'guess-list', class: 'guess-list', role: 'listbox', hidden: '' });
+  let matches = [];
+  let active = 0;
+  const show = () => {
+    matches = find(input.value, 6);
+    active = 0;
+    list.hidden = !matches.length;
+    input.setAttribute('aria-expanded', String(matches.length > 0));
+    list.replaceChildren(
+      ...matches.map((m, i) =>
         h(
-          'p',
-          { class: 'muted' },
-          `${q.answerName}, ${q.year}`,
-          q.speaker ? ` · ${q.speaker}` : '',
-          ` · ${TOPIC_LABELS[q.topic] ?? q.topic}`,
+          'li',
+          {
+            role: 'option',
+            class: 'guess-option',
+            'aria-selected': String(i === active),
+            // pointerdown, not click, so it fires before the box loses focus.
+            onpointerdown: (e) => {
+              e.preventDefault();
+              choose(i);
+            },
+          },
+          m.name,
         ),
-        h(
-          'div',
-          { class: 'row' },
-          h('a', { class: 'link', href: `../#layer=${q.topic}&year=${q.year}&country=${q.iso}`, target: '_blank', rel: 'noopener' }, 'See it on the map ↗'),
-          h('button', { type: 'button', class: 'primary', onclick: state.next }, state.round === ROUNDS - 1 ? 'See your score' : 'Next'),
-        ),
-      )
-    : null;
+      ),
+    );
+  };
+  const choose = (i) => {
+    if (!matches[i]) return;
+    const iso = matches[i].iso;
+    input.value = '';
+    list.hidden = true;
+    onGuess(iso);
+  };
+  input.addEventListener('input', show);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!matches.length) return;
+      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length;
+      [...list.children].forEach((li, i) => li.setAttribute('aria-selected', String(i === active)));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      choose(active);
+    }
+  });
+  return h('div', { class: 'guess-box' }, input, list);
+}
 
-  render(
-    progress,
-    h('p', { class: 'kicker' }, `${state.practice ? 'Practice' : `#${state.number}`} · Question ${state.round + 1} of ${ROUNDS}`),
-    h('figure', { class: 'quote' }, h('blockquote', {}, `“${q.text}”`), h('figcaption', {}, `Said in ${q.year}`)),
-    options,
-    reveal,
+async function showRound(state) {
+  const i = state.round;
+  const answer = state.answers[i];
+  const guesses = state.guesses[i];
+  const points = outcome(answer, guesses);
+  const done = points !== null;
+  progress(state);
+  $('kicker').textContent = `${state.practice ? 'Practice' : `#${state.number}`} · Round ${i + 1} of ${ROUNDS} · ${LEVELS[i]}`;
+  await mapReady;
+  paint(answer, guesses.filter((g) => g !== answer), done);
+  if (!done && guesses.length === 0) worldView();
+
+  const clueList = guesses.length && !done ? await clues(answer) : [];
+  const rows = guesses.map((g) =>
+    h(
+      'li',
+      { class: g === answer ? 'hit' : 'miss' },
+      h('span', { class: 'guess-name' }, todayName(g)),
+      g === answer
+        ? h('span', { class: 'guess-far' }, '✓')
+        : h('span', { class: 'guess-far' }, `${km.format(distanceKm(centreOf[g], centreOf[answer]))} km ${arrow(centreOf[g], centreOf[answer])}`),
+    ),
   );
+
+  const left = GUESSES - guesses.length;
+  fillPanel(
+    h('p', { class: 'prompt' }, done ? '' : `Which country is highlighted${smallPlaces.has(answer) ? ' (circled)' : ''}?`),
+    rows.length ? h('ol', { class: 'guesses' }, rows) : null,
+    clueList.slice(0, guesses.length).filter(Boolean).length
+      ? h('ul', { class: 'clues' }, clueList.slice(0, guesses.length).filter(Boolean).map((c) => h('li', {}, c)))
+      : null,
+    done
+      ? h(
+          'div',
+          { class: 'reveal' },
+          h('p', { class: 'verdict' }, points ? `${['', 'Third', 'Second', 'First'][points]} try: ${points} point${points === 1 ? '' : 's'}.` : `It was ${withThe(todayName(answer))}.`),
+          h('p', { class: 'answer-name' }, todayName(answer)),
+          h(
+            'div',
+            { class: 'row' },
+            h('a', { class: 'link', href: `../country/${slugOf(todayName(answer))}/`, target: '_blank', rel: 'noopener' }, 'Its fact sheet ↗'),
+            h('button', { type: 'button', class: 'primary', onclick: state.next }, i === ROUNDS - 1 ? 'See your score' : 'Next round'),
+          ),
+        )
+      : [guessBox(state.guess), h('p', { class: 'muted small' }, `${left} guess${left === 1 ? '' : 'es'} left. Drag or zoom the map to look closer.`)],
+  );
+  if (!done) panel.querySelector('input')?.focus({ preventScroll: true });
+  else panel.querySelector('.primary')?.focus({ preventScroll: true });
 }
 
-function shareText(state) {
-  const score = state.answers.filter(Boolean).length;
-  const squares = state.answers.map((ok) => (ok ? '🟦' : '⬜')).join('');
-  return `Atlas Meridian · Who said it? #${state.number}\n${score}/${ROUNDS} ${squares}\n${SITE}`;
-}
+// ---- Results ------------------------------------------------------------------
 
 function streak(number) {
   let days = 0;
-  while (saved.get(number - days)?.answers?.length === ROUNDS) days += 1;
-  return days;
+  for (;;) {
+    const record = saved.get(number - days);
+    const finished = record?.guesses?.length === ROUNDS && record.guesses.every((g, i) => outcome(record.answers[i], g) !== null);
+    if (!finished) return days;
+    days += 1;
+  }
 }
 
-function results(state, practiceAgain) {
-  const score = state.answers.filter(Boolean).length;
-  const verdicts = ['Tough one.', 'A start.', 'Not bad.', 'Good going.', 'Very good.', 'Perfect!'];
+function results(state) {
+  const scores = state.answers.map((a, i) => outcome(a, state.guesses[i]));
+  const total = scores.reduce((a, b) => a + b, 0);
+  const squares = scores.map(squareOf).join('');
   const share = async () => {
-    const text = shareText(state);
+    const text = `Atlas Meridian · Guess the Country #${state.number}\n${total}/${ROUNDS * GUESSES} ${squares}\n${SITE}`;
     try {
       if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ text });
       else {
@@ -230,77 +431,75 @@ function results(state, practiceAgain) {
     } catch {}
   };
   const days = state.practice ? 0 : streak(state.number);
-  render(
-    h('p', { class: 'kicker' }, state.practice ? 'Practice round' : `Daily puzzle #${state.number}`),
-    h('h1', {}, `${score} / ${ROUNDS}`),
-    h('p', { class: 'squares', 'aria-hidden': 'true' }, state.answers.map((ok) => (ok ? '🟦' : '⬜')).join('')),
-    h('p', { class: 'lede' }, verdicts[score], days > 1 ? ` That’s ${days} days in a row.` : ''),
+  progress({ ...state, round: -1 });
+  $('kicker').textContent = state.practice ? 'Practice game' : `Daily game #${state.number}`;
+  mapReady.then(() => {
+    paint(state.answers[ROUNDS - 1], [], false);
+    for (const iso of state.answers) map.setFeatureState({ source: 'countries', id: iso }, { role: 'answer' });
+    painted = [...state.answers];
+    map.getSource('ring').setData({ type: 'FeatureCollection', features: [] });
+    worldView();
+  });
+  fillPanel(
+    h('p', { class: 'score' }, `${total} / ${ROUNDS * GUESSES}`),
+    h('p', { class: 'squares', 'aria-hidden': 'true' }, squares),
+    days > 1 ? h('p', { class: 'muted' }, `${days} days in a row.`) : null,
+    h(
+      'ol',
+      { class: 'recap' },
+      state.answers.map((iso, i) =>
+        h(
+          'li',
+          {},
+          h('span', { class: 'recap-square', 'aria-hidden': 'true' }, squareOf(scores[i])),
+          h('a', { href: `../country/${slugOf(todayName(iso))}/` }, todayName(iso)),
+          h('span', { class: 'muted small' }, ` ${LEVELS[i]} · ${scores[i]} pt${scores[i] === 1 ? '' : 's'}`),
+        ),
+      ),
+    ),
     h(
       'div',
       { class: 'row' },
       state.practice ? null : h('button', { type: 'button', class: 'primary', onclick: share }, 'Share result'),
-      h('button', { type: 'button', class: 'secondary', onclick: practiceAgain }, 'Practice with more quotes'),
+      h('button', { type: 'button', class: 'secondary', onclick: () => play({ number: state.number, practice: true }) }, 'Play a practice game'),
     ),
-    state.practice ? null : h('p', { class: 'muted' }, 'A new puzzle appears at midnight.'),
-    h(
-      'ol',
-      { class: 'recap' },
-      state.questions.map((q, i) =>
-        h(
-          'li',
-          {},
-          h('span', { class: state.answers[i] ? 'ok' : 'miss' }, state.answers[i] ? '✓' : '✗'),
-          h('a', { href: `../#layer=${q.topic}&year=${q.year}&country=${q.iso}` }, `${q.answerName}, ${q.year}`),
-        ),
-      ),
-    ),
+    state.practice ? null : h('p', { class: 'muted small' }, 'A new game appears at midnight.'),
   );
 }
 
-// ---- Running a round ------------------------------------------------------------
+// ---- Running a game ---------------------------------------------------------------
 
-function play(data, { number, practice }) {
-  const seed = practice ? Math.floor(Math.random() * 1e9) : number * 7919;
-  const questions = makeQuestions(data, seed);
-  // Saved progress only counts if it was for these exact questions (the quote
-  // pool can change when the site is rebuilt).
-  const key = questions.map((q) => `${q.iso}${q.year}`).join(',');
+function play({ number, practice }) {
+  const answers = practice ? practiceAnswers() : answersFor(number);
+  // Saved progress only counts if it was for these exact countries (the
+  // tiers can change when the game is rebuilt).
   const previous = practice ? null : saved.get(number);
   const state = {
     number,
     practice,
-    questions,
-    answers: previous?.key === key ? previous.answers : [],
+    answers,
+    guesses: previous?.answers?.join() === answers.join() ? previous.guesses : answers.map(() => []),
     round: 0,
-    picked: null,
   };
-  const again = () => play(data, { number, practice: true });
+  const save = () => !practice && saved.set(number, { answers, guesses: state.guesses });
 
+  state.guess = (iso) => {
+    const guesses = state.guesses[state.round];
+    if (guesses.includes(iso)) return showToast(`Already guessed ${todayName(iso)}`);
+    guesses.push(iso);
+    save();
+    showRound(state);
+  };
   state.next = () => {
     state.round += 1;
-    state.picked = null;
-    if (state.round >= ROUNDS) results(state, again);
-    else question(state, answer);
+    if (state.round >= ROUNDS) results(state);
+    else showRound(state);
   };
-  function answer(iso) {
-    state.picked = iso;
-    state.answers[state.round] = iso === state.questions[state.round].iso;
-    if (!practice) saved.set(number, { answers: state.answers, key });
-    question(state, answer);
-  }
 
-  // Already finished today's? Go straight to the score; halfway? Carry on.
-  if (state.answers.length >= ROUNDS) return results(state, again);
-  state.round = state.answers.length;
-  if (state.round > 0 || practice) return question(state, answer);
-  intro(number, () => question(state, answer));
+  // Pick up where the player left off; finished games go straight to the score.
+  state.round = state.answers.findIndex((a, i) => outcome(a, state.guesses[i]) === null);
+  if (state.round === -1) return results(state);
+  showRound(state);
 }
 
-try {
-  // The puzzle lives at /daily/, so the data is one folder up.
-  const response = await fetch(new URL('../data/daily.json', location.href));
-  if (!response.ok) throw new Error(response.status);
-  play(await response.json(), { number: puzzleNumber(), practice: false });
-} catch {
-  render(h('p', { class: 'muted' }, 'Couldn’t load the puzzle. Please check your connection and refresh the page.'));
-}
+play({ number: gameNumber(), practice: false });

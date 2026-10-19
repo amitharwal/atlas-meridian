@@ -16,8 +16,9 @@ the environment, technology, safety) and see it on an interactive world map, yea
 - **At the UN**: every September, each UN member gives a speech at the General Assembly's
   General Debate. Atlas Meridian reads all of them (over 11,000 from 1946 to 2025), sorts what
   each country talked about into 16 topics, and maps that too, along with who gave each speech
-  and which countries name each other. There's also a daily **"Who said it?"** puzzle (`/daily/`)
-  built from the speeches.
+  and which countries name each other.
+- **Guess the Country** (`/daily/`): a daily map game. One country is highlighted; name it in
+  up to three guesses, with distance, direction and statistics as clues. Five rounds, easy to hard.
 
 It's a free, open-source static website: no accounts, no tracking, no server.
 
@@ -35,8 +36,10 @@ It's a free, open-source static website: no accounts, no tracking, no server.
    measure for the map, one per country for its card and pages, and the median country for each
    year. A GitHub Action refreshes them monthly and redeploys the site.
 4. **Extra data** from the speeches: `pipeline/build_speakers.py` (who gave each speech) and
-   `pipeline/build_mentions.py` (which countries each speech names). The puzzle's quote pool is
-   built by `pipeline/build_daily.mjs` at publish time.
+   `pipeline/build_mentions.py` (which countries each speech names).
+   `pipeline/build_game.mjs` sorts the 193 UN members into five difficulty tiers for the daily
+   game (by land area, population and economy, plus any hand moves listed in the file). It's run
+   by hand with `npm run build:game`, so the game's schedule doesn't change when the data does.
 5. **Country fact sheets** are static pages generated at build time by `pipeline/build_profiles.mjs`
    (`npm run build` runs it after Vite), along with `sitemap.xml` for search engines.
 6. **The site** is plain JavaScript built with Vite: the map (`index.html`, `src/main.js`), with

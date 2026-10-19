@@ -3,24 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Who said it? · Daily UN puzzle · Atlas Meridian</title>
-    <meta name="description" content="Five real quotes from 80 years of UN speeches. Guess which country said each one. A new puzzle every day." />
+    <title>Guess the Country · Daily map game · Atlas Meridian</title>
+    <meta name="description" content="One country is highlighted on the world map. Can you name it? Five rounds a day, from easy to hard." />
     <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://amitharwal.github.io/atlas-meridian/daily/" />
-    <meta property="og:title" content="Who said it? · Daily UN puzzle" />
-    <meta property="og:description" content="Five real quotes from 80 years of UN speeches. Guess which country said each one." />
+    <meta property="og:title" content="Guess the Country · Atlas Meridian" />
+    <meta property="og:description" content="One country is highlighted on the world map. Can you name it? Five rounds a day, from easy to hard." />
     <meta property="og:image" content="https://amitharwal.github.io/atlas-meridian/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preload" href="../data/countries.topo.json" as="fetch" crossorigin />
+    <link rel="preload" href="../data/game.json" as="fetch" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-    <link rel="preload" href="../data/daily.json" as="fetch" crossorigin />
   </head>
   <body>
     <header class="site-nav is-static" data-page="daily"></header>
-    <main id="app" class="app" aria-live="polite">
-      <p class="muted">Loading today's puzzle…</p>
+    <main class="game">
+      <div class="game-head">
+        <p id="kicker" class="kicker">Daily game</p>
+        <h1>Guess the Country</h1>
+        <ol id="progress" class="progress" aria-label="Rounds"></ol>
+      </div>
+      <div class="map-wrap">
+        <div id="map" class="game-map" role="img" aria-label="World map with one country highlighted"></div>
+        <p id="map-status" class="map-status" role="status">Loading the map…</p>
+      </div>
+      <section id="panel" class="panel" aria-live="polite"></section>
     </main>
     <div id="toast" class="toast" role="status" hidden></div>
     <script type="module" src="/src/daily.js"></script>
