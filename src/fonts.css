@@ -1,0 +1,7 @@
+/* The site's two typefaces, served from the site itself rather than Google
+   Fonts, so visitors' browsers don't contact a third party. Each file covers
+   one alphabet; browsers only download the ones a page uses. */
+@import '@fontsource-variable/source-serif-4/opsz.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';

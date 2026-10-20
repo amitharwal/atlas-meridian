@@ -67,7 +67,7 @@ main {
 
 h1 {
   margin: 2px 0 6px;
-  font: 600 clamp(34px, 6vw, 48px) / 1.1 'Source Serif 4', Georgia, serif;
+  font: 600 clamp(34px, 6vw, 48px) / 1.1 'Source Serif 4 Variable', Georgia, serif;
 }
 
 .sub {
@@ -78,7 +78,7 @@ h1 {
 .lede {
   max-width: 640px;
   margin: 18px 0;
-  font: 19px/1.5 'Source Serif 4', Georgia, serif;
+  font: 19px/1.5 'Source Serif 4 Variable', Georgia, serif;
   color: var(--text-soft);
 }
 
@@ -98,7 +98,7 @@ section {
 
 h2 {
   margin: 0 0 4px;
-  font: 600 22px 'Source Serif 4', Georgia, serif;
+  font: 600 22px 'Source Serif 4 Variable', Georgia, serif;
 }
 
 .note {
@@ -217,7 +217,7 @@ h2 {
 
 .quote blockquote {
   margin: 0;
-  font: 18px/1.5 'Source Serif 4', Georgia, serif;
+  font: 18px/1.5 'Source Serif 4 Variable', Georgia, serif;
 }
 
 .quote figcaption {
@@ -236,7 +236,7 @@ h2 {
 }
 
 .figure {
-  font: 600 26px 'Source Serif 4', Georgia, serif;
+  font: 600 26px 'Source Serif 4 Variable', Georgia, serif;
   font-variant-numeric: tabular-nums;
 }
 
@@ -327,7 +327,7 @@ footer {
 
 .key-facts dd {
   margin: 2px 0 0;
-  font: 600 26px/1.2 'Source Serif 4', Georgia, serif;
+  font: 600 26px/1.2 'Source Serif 4 Variable', Georgia, serif;
   font-variant-numeric: tabular-nums;
 }
 
@@ -370,7 +370,7 @@ footer {
 
 h3 {
   margin: 32px 0 4px;
-  font: 600 18px 'Source Serif 4', Georgia, serif;
+  font: 600 18px 'Source Serif 4 Variable', Georgia, serif;
 }
 
 .un h3:first-of-type {

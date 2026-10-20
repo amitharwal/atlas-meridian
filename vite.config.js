@@ -36,13 +36,16 @@ export default defineConfig({
   plugins: [fillFacts],
   build: {
     // The map, plus the pages under /daily/, /rankings/ and /compare/. (Country
-    // pages are built separately by pipeline/build_profiles.mjs.)
+    // pages are built separately by pipeline/build_profiles.mjs, which finds
+    // the fonts' stylesheet through the manifest.)
+    manifest: true,
     rollupOptions: {
       input: {
         main: 'index.html',
         daily: 'daily/index.html',
         rankings: 'rankings/index.html',
         compare: 'compare/index.html',
+        fonts: 'src/fonts.css',
       },
     },
   },

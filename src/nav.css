@@ -26,7 +26,7 @@
 .nav-brand {
   flex: none;
   color: var(--text);
-  font: 600 18px 'Source Serif 4', Georgia, serif;
+  font: 600 18px 'Source Serif 4 Variable', Georgia, serif;
   text-decoration: none;
   white-space: nowrap;
 }

@@ -1,8 +1,9 @@
 @import './tokens.css';
+@import './fonts.css';
 @import './nav.css';
 
 :root {
-  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-display: 'Source Serif 4 Variable', Georgia, serif;
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --radius: 10px;
 }

@@ -6,10 +6,12 @@
 // Runs after `vite build` (see package.json), reading the data in dist/data
 // and writing into dist/.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { feature } from 'topojson-client';
 import { chartRange, linePath } from '../src/chart.js';
 import { makeNamer, slugOf, speakerLabel } from '../src/data.js';
 import { againstMedian, formatter, grouped, KEY_FACTS, latest, versus } from '../src/format.js';
 import { navHtml } from '../src/nav.js';
+import { previewPng } from './preview_image.mjs';
 
 const SITE = 'https://amitharwal.github.io/atlas-meridian/';
 const DIST = 'dist';
@@ -24,9 +26,12 @@ const regions = read('regions.json');
 const worldMedian = read('indicators/world.json');
 // The menu bar's styles, put straight into each page (they're small).
 const navCss = readFileSync('src/nav.css', 'utf8');
+// The fonts' stylesheet as Vite built it (its name changes with its contents).
+const fontsCss = JSON.parse(readFileSync(`${DIST}/.vite/manifest.json`, 'utf8'))['src/fonts.css'].file;
 // "Prime Minister Frank Bainimarama", or just the name when no title was recorded.
 const speakerOf = (iso, year) => speakerLabel(speakers[iso]?.[year]);
 const shapes = topology.objects.countries.geometries.map((g) => g.properties);
+const geometryOf = Object.fromEntries(feature(topology, topology.objects.countries).features.map((f) => [f.properties.iso3, f.geometry]));
 const nameOf = makeNamer({ features: shapes.map((properties) => ({ properties })) });
 const continentOf = {
   ...Object.fromEntries(shapes.map((p) => [p.iso3, p.continent])),
@@ -75,7 +80,8 @@ const worldTopic = topics.map((_, i) => {
 
 // ---- One page -------------------------------------------------------------
 
-function page({ title, description, path, body, current = 'countries' }) {
+// `image`: the picture shown when the page is shared, if it has its own.
+function page({ title, description, path, body, current = 'countries', image }) {
   const depth = path.split('/').filter(Boolean).length;
   const root = '../'.repeat(depth);
   return `<!doctype html>
@@ -91,11 +97,11 @@ function page({ title, description, path, body, current = 'countries' }) {
 <meta property="og:url" content="${SITE}${path}">
 <meta property="og:title" content="${escape(title)}">
 <meta property="og:description" content="${escape(description)}">
-<meta property="og:image" content="${SITE}og.png">
+<meta property="og:image" content="${SITE}${image ?? 'og.png'}">${
+   image ? `\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n<meta property="og:image:alt" content="${escape(title.split(' · ')[0])}: key figures and outline">` : ''
+ }
 <meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="${root}${fontsCss}">
 <link rel="stylesheet" href="${root}profile.css">
 <style>${navCss}</style>
 </head>
@@ -309,6 +315,29 @@ ${un.html.replace('<section class="un">', '<section class="un" id="at-the-un">')
     description,
     path: `country/${slug[iso]}/`,
     body,
+    image: `country/${slug[iso]}/preview.png`,
+  });
+}
+
+// The picture for when the page is shared: name, key figures and outline.
+function preview(iso) {
+  const [region, income] = regions[iso] ?? [];
+  const stats = existsSync(`${DIST}/data/stats/${iso}.json`) ? read(`stats/${iso}.json`) : {};
+  const facts = KEY_FACTS.map((id) => indicators.find((i) => i.id === id))
+    .map((ind) => ({ ind, found: latest(stats[ind.id]) }))
+    .filter(({ found }) => found)
+    .map(({ ind, found }) => [formatOf[ind.id](found.value), `${ind.label}, ${found.year}`]);
+  const years = Object.keys(speeches.shares[iso] ?? {}).map(Number);
+  const note = years.length
+    ? `${years.length} speeches at the UN General Debate, ${Math.min(...years)}–${Math.max(...years)}`
+    : null;
+  return previewPng({
+    name: todayName(iso),
+    kicker: [region ?? continentOf[iso] ?? 'Former UN member', income].filter(Boolean).join(' · '),
+    facts,
+    note,
+    footer: `World Bank figures and UN speeches since ${YEARS[0]} · free and open source`,
+    geometry: geometryOf[iso],
   });
 }
 
@@ -318,6 +347,7 @@ const sorted = [...codes].sort((a, b) => todayName(a).localeCompare(todayName(b)
 for (const iso of sorted) {
   mkdirSync(`${DIST}/country/${slug[iso]}`, { recursive: true });
   writeFileSync(`${DIST}/country/${slug[iso]}/index.html`, profile(iso));
+  writeFileSync(`${DIST}/country/${slug[iso]}/preview.png`, preview(iso));
 }
 
 // A–Z list, grouped by first letter. Former names get an entry too
