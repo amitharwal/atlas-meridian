@@ -1,6 +1,7 @@
 // The rankings page: every country, ranked by any measure, for any year.
 import { grouped } from './format.js';
 import { makeLayers, UN_GROUP } from './layers.js';
+import { makeSearch } from './search.js';
 import { h, loadSite, showError } from './site.js';
 
 const site = await loadSite().catch(showError);
@@ -33,6 +34,8 @@ for (const income of INCOME_ORDER.filter((i) => distinct(1).includes(i))) income
 
 // Every country that could have a value: World Bank countries and UN speakers.
 const codes = [...new Set([...Object.keys(regions), ...Object.keys(speeches.shares)])];
+// The name filter matches like the map's search: "UK", "cote", "USSR".
+const find = makeSearch(codes, nameOf);
 
 // The page's settings live in the address, so any table can be shared.
 const params = new URLSearchParams(location.hash.slice(1));
@@ -83,7 +86,6 @@ async function chooseMeasure(id, year) {
 
 function render() {
   const layer = layers[state.layer];
-  const q = filterBox.value.trim().toLowerCase();
   let rows = [];
   for (const iso of codes) {
     const found = layer.value(iso, state.year);
@@ -96,7 +98,8 @@ function render() {
   rows.sort((a, b) => (state.ascending ? a.value - b.value : b.value - a.value));
   // Ranks are worked out before the name filter, so "find" keeps each country's real rank.
   rows = rows.map((row, i) => ({ ...row, rank: i + 1 }));
-  const shown = q ? rows.filter((row) => nameOf(row.iso, state.year).toLowerCase().includes(q)) : rows;
+  const named = filterBox.value.trim() ? new Set(find(filterBox.value, Infinity).map((match) => match.iso)) : null;
+  const shown = named ? rows.filter((row) => named.has(row.iso)) : rows;
 
   // Bars start at zero, or at the lowest value when some are negative (growth, inflation).
   const values = rows.map((r) => r.value);
@@ -129,7 +132,8 @@ function render() {
   const unit = layer.kind === 'topic' ? `% of each country's ${state.year} UN speech` : layer.unit;
   const source = layer.kind === 'topic' ? 'UN General Debate speeches, sorted into topics by a language model' : `${layer.source}, via the World Bank`;
   $('about-measure').textContent = `${layer.label} (${unit}). ${source}.${layer.note ? ` ${layer.note}` : ''}`;
-  status.textContent = shown.length ? '' : `No figures for ${state.year}${state.region || state.income ? ' with these filters' : ''}.`;
+  const filters = [named && `“${filterBox.value.trim()}”`, (state.region || state.income) && 'these filters'].filter(Boolean);
+  status.textContent = shown.length ? '' : `No figures for ${filters.length ? `${filters.join(' with ')} in ` : ''}${state.year}.`;
   status.hidden = Boolean(shown.length);
   table.hidden = !shown.length;
   orderButton.textContent = state.ascending ? 'Lowest first' : 'Highest first';

@@ -23,9 +23,15 @@
       <p class="sub">Two countries side by side. Charts show both since 1960, with the median country dashed.</p>
 
       <form class="controls" onsubmit="return false">
-        <label class="control control-wide"><span><span class="swatch swatch-a" aria-hidden="true"></span>First country</span> <select id="pick-a"></select></label>
+        <div class="control control-wide">
+          <label for="pick-a"><span class="swatch swatch-a" aria-hidden="true"></span>First country</label>
+          <div class="country-pick"><input id="pick-a" type="text" placeholder="Type a country" /><ul id="pick-a-list" class="pick-list" aria-label="Matching countries" hidden></ul></div>
+        </div>
         <button id="swap" class="pill swap" type="button" aria-label="Swap the two countries">⇄</button>
-        <label class="control control-wide"><span><span class="swatch swatch-b" aria-hidden="true"></span>Second country</span> <select id="pick-b"></select></label>
+        <div class="control control-wide">
+          <label for="pick-b"><span class="swatch swatch-b" aria-hidden="true"></span>Second country</label>
+          <div class="country-pick"><input id="pick-b" type="text" placeholder="Type a country" /><ul id="pick-b-list" class="pick-list" aria-label="Matching countries" hidden></ul></div>
+        </div>
       </form>
 
       <p id="status" class="note" role="status">Loading…</p>

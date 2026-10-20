@@ -1,7 +1,9 @@
 // The compare page: two countries side by side, across every measure.
 import { MAX_GAP } from './chart.js';
+import { makeCombobox } from './combobox.js';
 import { formatter, grouped, KEY_FACTS, latest } from './format.js';
 import { loadJson } from './data.js';
+import { makeSearch } from './search.js';
 import { h, loadSite, showError } from './site.js';
 
 const site = await loadSite().catch(showError);
@@ -11,16 +13,11 @@ const formatOf = Object.fromEntries(indicators.map((i) => [i.id, formatter(i)]))
 const YEARS = [1960, Math.max(...indicators.map((i) => i.years[1]))];
 
 const $ = (id) => document.getElementById(id);
-const pickA = $('pick-a');
-const pickB = $('pick-b');
 const status = $('status');
 const out = $('comparison');
 const tip = $('chart-tip');
 
-const codes = [...new Set([...Object.keys(regions), ...Object.keys(speeches.shares)])]
-  .filter(hasProfile)
-  .sort((a, b) => todayName(a).localeCompare(todayName(b)));
-for (const pick of [pickA, pickB]) pick.append(...codes.map((iso) => h('option', { value: iso }, todayName(iso))));
+const codes = [...new Set([...Object.keys(regions), ...Object.keys(speeches.shares)])].filter(hasProfile);
 
 const params = new URLSearchParams(location.hash.slice(1));
 const valid = (iso) => codes.includes(iso);
@@ -167,8 +164,8 @@ function unSection() {
 }
 
 async function render() {
-  pickA.value = a;
-  pickB.value = b;
+  pickA.set(a);
+  pickB.set(b);
   history.replaceState(null, '', `#a=${a}&b=${b}`);
   document.title = `${todayName(a)} vs ${todayName(b)} · Atlas Meridian`;
   status.textContent = 'Loading…';
@@ -233,13 +230,29 @@ async function render() {
   );
 }
 
-pickA.addEventListener('change', () => {
-  a = pickA.value;
-  render();
+// Typing a country picks it; picking the other side's country swaps the two.
+const find = makeSearch(codes, nameOf);
+const pickA = makeCombobox({
+  input: $('pick-a'),
+  list: $('pick-a-list'),
+  find,
+  nameOf: todayName,
+  onChoose: (iso) => {
+    if (iso === b) b = a;
+    a = iso;
+    render();
+  },
 });
-pickB.addEventListener('change', () => {
-  b = pickB.value;
-  render();
+const pickB = makeCombobox({
+  input: $('pick-b'),
+  list: $('pick-b-list'),
+  find,
+  nameOf: todayName,
+  onChoose: (iso) => {
+    if (iso === a) a = b;
+    b = iso;
+    render();
+  },
 });
 $('swap').addEventListener('click', () => {
   [a, b] = [b, a];
