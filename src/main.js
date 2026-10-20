@@ -280,6 +280,20 @@ function paintYear() {
 }
 
 const legend = document.getElementById('legend');
+const legendTicks = [...document.querySelectorAll('.legend-tick')];
+
+// Short numbers for under the colour bar: no units like " yrs", and two
+// significant figures, so three fit side by side.
+const shortNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumSignificantDigits: 2 });
+function tickFormat(layer) {
+  if (layer.kind === 'topic') return (v) => `${Math.round(v)}%`;
+  if (layer.kind === 'mentions') return (v) => String(Math.round(v));
+  // (An indicator's own `format` is replaced by its formatting function, so read it from the list.)
+  const format = indicators.find((i) => i.id === layer.id)?.format;
+  if (format === 'usd') return (v) => `${v < 0 ? '−' : ''}$${shortNumber.format(Math.abs(v))}`;
+  if (format === 'pct') return (v) => `${shortNumber.format(v)}%`;
+  return (v) => shortNumber.format(v);
+}
 const spark = document.getElementById('spark');
 
 function paintLayer() {
@@ -290,6 +304,11 @@ function paintLayer() {
   const [low, high] = layer.legendLabels ?? [format(layer.stops[0]), `${format(layer.stops.at(-1))}+`];
   document.getElementById('legend-min').textContent = low;
   document.getElementById('legend-max').textContent = high;
+  // The values at the three middle shades, under the colour bar. (Not for
+  // "who gave the speech", whose shades are ranks, named at either end.)
+  legendTicks.forEach((tick, i) => {
+    tick.textContent = layer.kind === 'speaker' ? '' : tickFormat(layer)(layer.stops[i + 1]);
+  });
   const legendTarget = document.getElementById('legend-target');
   legendTarget.hidden = layer.kind !== 'mentions';
   if (layer.kind === 'mentions') document.getElementById('legend-target-name').textContent = nameOf(layer.target, 9999);
@@ -551,14 +570,16 @@ function showMentions(iso) {
 
 // ---- Rankings ---------------------------------------------------------------
 
+// The countries a map's rankings are drawn from.
+const rankCodes = (layer) => (['topic', 'mentions'].includes(layer.kind) ? Object.keys(speeches.shares) : Object.keys(layer.data));
+
 function refreshRankings() {
   const layer = layers[state.layer];
   if (rankings.hidden || !layer.ready) return;
-  const codes = ['topic', 'mentions'].includes(layer.kind) ? Object.keys(speeches.shares) : Object.keys(layer.data);
   renderRankings(rankings, {
     layer,
     year: state.year,
-    rows: ranking(layer, state.year, codes).filter((row) => layer.kind !== 'mentions' || row.value > 0),
+    rows: ranking(layer, state.year, rankCodes(layer)).filter((row) => layer.kind !== 'mentions' || row.value > 0),
     title: layer.kind === 'mentions' ? `Named ${nameOf(layer.target, 9999)} most · ${state.year}` : null,
     fullUrl: layer.kind === 'indicator' || layer.kind === 'topic' ? `rankings/#layer=${layer.id}&year=${state.year}` : null,
     nameOf,
@@ -667,6 +688,27 @@ function featureAt(point) {
   return feature?.properties.iso3 ?? null;
 }
 
+// Where each country ranks on the map being shown, worked out once per map
+// and year: iso3 -> rank, plus how many are ranked. Ties share a rank.
+let rankCache = { key: null, ranks: null, count: 0 };
+function rankOf(iso) {
+  const layer = layers[state.layer];
+  const key = `${layer.id}|${layer.target}|${state.year}`;
+  if (rankCache.key !== key) {
+    const rows = ranking(layer, state.year, rankCodes(layer));
+    const ranks = new globalThis.Map(); // (plain `Map` here is MapLibre's map)
+    rows.forEach((row, i) => ranks.set(row.iso, i > 0 && row.value === rows[i - 1].value ? ranks.get(rows[i - 1].iso) : i + 1));
+    rankCache = { key, ranks, count: rows.length };
+  }
+  return { rank: rankCache.ranks.get(iso), count: rankCache.count };
+}
+
+const ordinal = (n) => {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] ?? 'th';
+  return `${n}${suffix}`;
+};
+
 function showTooltip(iso, x, y) {
   const layer = layers[state.layer];
   const found = layer.value(iso, state.year);
@@ -675,7 +717,14 @@ function showTooltip(iso, x, y) {
   const value = document.createElement('b');
   value.textContent = found ? layer.format(found.value) + (found.year === state.year ? '' : ` (${found.year})`) : '—';
   if (layer.kind === 'mentions' && iso === layer.target) value.textContent = `named by ${layer.mentioners(state.year)} countries`;
-  tooltip.replaceChildren(name, value);
+  const parts = [name, value];
+  // Its place among all countries: "12th of 190". Not for speakers, whose
+  // values are ranks of seniority, nor for mentions, where most are tied at 0.
+  if (found && layer.ready && (layer.kind === 'indicator' || layer.kind === 'topic')) {
+    const { rank, count } = rankOf(iso);
+    if (rank) parts.push(Object.assign(document.createElement('span'), { className: 'tooltip-rank', textContent: `${ordinal(rank)} of ${count}` }));
+  }
+  tooltip.replaceChildren(...parts);
   tooltip.style.transform = `translate(${x + 14}px, ${y + 14}px)`;
   tooltip.hidden = false;
 }

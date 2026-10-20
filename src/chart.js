@@ -73,8 +73,14 @@ export function miniChart({ country, world, years, year, label, onPickYear }) {
 }
 
 // Fill the timeline's background chart with the world trend for the chosen layer.
+// It's there to show the trend's shape, so it spans the trend's own range
+// rather than starting from zero (life expectancy rising from 50 to 73 would
+// otherwise look flat).
 export function drawSparkline(svg, world, years) {
-  const { bottom, top } = chartRange(world);
+  const values = Object.values(world);
+  const [low, high] = [Math.min(...values), Math.max(...values)];
+  const pad = (high - low) * 0.15 || Math.abs(high) * 0.1 || 1;
+  const [bottom, top] = [low - pad, high + pad];
   const line = linePath(world, years, top, 1000, 40, bottom);
   // The filled area: each unbroken stretch of line, closed down to the baseline.
   const area = line

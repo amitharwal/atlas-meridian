@@ -48,5 +48,9 @@ export function grouped(indicators) {
   return [...groups];
 }
 
+// "2026-10-20" -> "20 October 2026", for "figures last updated".
+export const longDate = (iso) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
 // The three figures shown first for any country.
 export const KEY_FACTS = ['population', 'gdp_pc', 'life_exp'];

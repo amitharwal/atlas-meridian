@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { feature } from 'topojson-client';
 import { chartRange, linePath } from '../src/chart.js';
 import { makeNamer, slugOf, speakerLabel } from '../src/data.js';
-import { againstMedian, formatter, grouped, KEY_FACTS, latest, versus } from '../src/format.js';
+import { againstMedian, formatter, grouped, KEY_FACTS, latest, longDate, versus } from '../src/format.js';
 import { navHtml } from '../src/nav.js';
 import { previewPng } from './preview_image.mjs';
 
@@ -25,6 +25,7 @@ const topology = read('countries.topo.json');
 const speakers = read('speakers.json');
 const regions = read('regions.json');
 const worldMedian = read('indicators/world.json');
+const updated = longDate(read('indicators/updated.json').updated);
 // The menu bar's styles, put straight into each page (they're small).
 const navCss = readFileSync('src/nav.css', 'utf8');
 // The fonts' stylesheet as Vite built it (its name changes with its contents).
@@ -112,7 +113,7 @@ function page({ title, description, path, body, current = 'countries', image }) 
 ${body}
 </main>
 <footer>
-  <p>Figures: <a href="https://data.worldbank.org/">World Bank Open Data</a> (CC BY 4.0); the median country is the
+  <p>Figures: <a href="https://data.worldbank.org/">World Bank Open Data</a> (CC BY 4.0), last updated ${updated}; the median country is the
   middle one each year. Speeches: <a href="https://doi.org/10.7910/DVN/0TJX8Y">UN General Debate Corpus</a> (CC0);
   topics are sorted by a language model that agrees with hand-sorted passages about 71% of the time, so
   treat single numbers as rough. <a href="${root}">Atlas Meridian</a> is free and open source.</p>

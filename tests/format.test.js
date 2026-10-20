@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { againstMedian, formatter, grouped, latest, versus } from '../src/format.js';
+import { againstMedian, formatter, grouped, latest, longDate, versus } from '../src/format.js';
 
 test('money is written short, with the sign in front', () => {
   const usd = formatter({ format: 'usd' });
@@ -47,4 +47,9 @@ test('latest finds the newest year', () => {
 test('grouped keeps groups in the order they first appear', () => {
   const groups = grouped([{ id: 'a', group: 'X' }, { id: 'b', group: 'Y' }, { id: 'c', group: 'X' }]);
   assert.deepEqual(groups.map(([title, items]) => [title, items.map((i) => i.id)]), [['X', ['a', 'c']], ['Y', ['b']]]);
+});
+
+test('update dates are written out in full', () => {
+  assert.equal(longDate('2026-10-03'), '3 October 2026');
+  assert.equal(longDate('2027-01-31'), '31 January 2027');
 });

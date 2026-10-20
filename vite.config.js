@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
+import { longDate } from './src/format.js';
 
 // Counts quoted in the pages' text ("34 measures", "1946 to 2025"), worked out
 // from the data so they stay right when it changes, and the site's address.
@@ -15,6 +16,8 @@ function siteFacts() {
     topics: read('topics.json').length,
     firstYear: speeches.years[0],
     lastYear: speeches.years[1],
+    // When the World Bank figures last changed (pipeline/build_indicators.py).
+    updated: longDate(read('indicators/updated.json').updated),
     // Rounded down to the thousand: "over 11,000".
     speeches: (Math.floor(speechCount / 1000) * 1000).toLocaleString('en'),
   };

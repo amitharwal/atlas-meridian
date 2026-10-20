@@ -6,6 +6,7 @@ Writes, into public/data/:
   indicators/world.json  the median country for each indicator and year
   stats/<ISO3>.json      one per country, every indicator (for its card and page)
   regions.json           World Bank region and income group for each country
+  indicators/updated.json  the date the figures last changed, shown on the site
 
 Some indicators are paired with a UN speech topic, so the site can show what a
 country says next to what the numbers show. All of these are published by the
@@ -142,6 +143,15 @@ def real_countries():
     }
 
 
+def write_json(path, data, **options):
+    """Write a JSON file if its contents changed. Returns True if they did."""
+    text = json.dumps(data, **options)
+    if path.exists() and path.read_text() == text:
+        return False
+    path.write_text(text)
+    return True
+
+
 def round_sig(value, digits=3):
     if value == 0:
         return 0
@@ -164,6 +174,7 @@ def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     STATS.mkdir(parents=True, exist_ok=True)
     index, world, by_country = [], {}, {}
+    changed = False
 
     for indicator in INDICATORS:
         last_year = time.gmtime().tm_year
@@ -186,8 +197,12 @@ def main():
             raise SystemExit(f"{indicator['code']}: {len(values)} countries, down from {before} — refusing to overwrite")
 
         years = sorted({int(y) for by_year in values.values() for y in by_year})
-        with (OUTPUT / f"{indicator['id']}.json").open("w") as f:
-            json.dump({"years": [years[0], years[-1]], "values": values}, f, separators=(",", ":"), sort_keys=True)
+        changed |= write_json(
+            OUTPUT / f"{indicator['id']}.json",
+            {"years": [years[0], years[-1]], "values": values},
+            separators=(",", ":"),
+            sort_keys=True,
+        )
 
         # The median country each year, once enough countries report to make it meaningful.
         per_year = {}
@@ -201,23 +216,25 @@ def main():
         index.append({**indicator, "years": [years[0], years[-1]]})
         print(f"{indicator['id']:13} {len(values):3} countries, {years[0]}–{years[-1]}")
 
-    with (OUTPUT / "index.json").open("w") as f:
-        json.dump(index, f, indent=1, ensure_ascii=False)
-    with (OUTPUT / "world.json").open("w") as f:
-        json.dump(world, f, separators=(",", ":"), sort_keys=True)
+    changed |= write_json(OUTPUT / "index.json", index, indent=1, ensure_ascii=False)
+    changed |= write_json(OUTPUT / "world.json", world, separators=(",", ":"), sort_keys=True)
     for code, stats in by_country.items():
-        with (STATS / f"{code}.json").open("w") as f:
-            json.dump(stats, f, separators=(",", ":"), sort_keys=True)
+        changed |= write_json(STATS / f"{code}.json", stats, separators=(",", ":"), sort_keys=True)
     # Files from earlier runs that nothing produces any more: a country the
     # World Bank stopped covering, or an indicator taken off the list.
-    keep = {f"{i['id']}.json" for i in INDICATORS} | {"index.json", "world.json"}
+    keep = {f"{i['id']}.json" for i in INDICATORS} | {"index.json", "world.json", "updated.json"}
     stale = [p for p in STATS.glob("*.json") if p.stem not in by_country]
     stale += [p for p in OUTPUT.glob("*.json") if p.name not in keep]
     for path in stale:
         print(f"Removing {path.relative_to(DATA)}, which is no longer produced")
         path.unlink()
-    with (DATA / "regions.json").open("w") as f:
-        json.dump({code: regions[code] for code in sorted(by_country)}, f, separators=(",", ":"), ensure_ascii=False)
+        changed = True
+    changed |= write_json(DATA / "regions.json", {code: regions[code] for code in sorted(by_country)}, separators=(",", ":"), ensure_ascii=False)
+    # The site says when the figures last changed (not just when they were checked).
+    updated = OUTPUT / "updated.json"
+    if changed or not updated.exists():
+        write_json(updated, {"updated": time.strftime("%Y-%m-%d", time.gmtime())})
+        print("Figures changed; updated.json set to today")
     print(f"Wrote {len(by_country)} country files")
 
 

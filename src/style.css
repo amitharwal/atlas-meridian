@@ -121,10 +121,35 @@ button {
 }
 
 .legend-ramp {
+  position: relative;
   width: 120px;
   height: 8px;
+  margin-bottom: 13px; /* room for the values underneath */
   border-radius: 2px;
   background: linear-gradient(90deg, var(--ramp-0), var(--ramp-1), var(--ramp-2), var(--ramp-3), var(--ramp-4));
+}
+
+/* The values at the three middle shades, which sit at a quarter, half and
+   three quarters of the way along. */
+.legend-tick {
+  position: absolute;
+  top: 10px;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.legend-tick:nth-child(1) {
+  left: 25%;
+}
+
+.legend-tick:nth-child(2) {
+  left: 50%;
+}
+
+.legend-tick:nth-child(3) {
+  left: 75%;
 }
 
 .legend-none {
@@ -930,6 +955,11 @@ button {
 
 .tooltip b {
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltip-rank {
+  opacity: 0.7;
   font-variant-numeric: tabular-nums;
 }
 

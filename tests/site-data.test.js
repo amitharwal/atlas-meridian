@@ -34,6 +34,12 @@ test('every indicator has a full data file and a world median', () => {
   }
 });
 
+test('the date the figures last changed is recorded', () => {
+  const { updated } = read('indicators/updated.json');
+  assert.match(updated, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(new Date(updated) <= new Date(), 'updated date is in the future');
+});
+
 test('indicators and speech topics fit together', async () => {
   const layers = makeLayers({ topics, speeches, indicators, years: speeches.years });
   const topicIds = new Set(topics.map((t) => t.id));
