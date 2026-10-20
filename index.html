@@ -9,10 +9,10 @@
 
     <!-- What chat apps and social sites show when the link is shared -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://amitharwal.github.io/atlas-meridian/" />
+    <meta property="og:url" content="{{site}}" />
     <meta property="og:title" content="Atlas Meridian · The world in numbers" />
     <meta property="og:description" content="A free world map of country statistics: population, economy, health, education, environment and more, plus 80 years of what every country said at the UN." />
-    <meta property="og:image" content="https://amitharwal.github.io/atlas-meridian/og.png" />
+    <meta property="og:image" content="{{site}}og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="A world map of countries shaded by a statistic" />
@@ -20,7 +20,6 @@
 
     <!-- Start downloading the data straight away, alongside the code -->
     <link rel="preload" href="./data/countries.topo.json" as="fetch" crossorigin />
-    <link rel="preload" href="./data/speeches.json" as="fetch" crossorigin />
     <link rel="preload" href="./data/indicators/life_exp.json" as="fetch" crossorigin />
   </head>
   <body>
@@ -89,7 +88,7 @@
       <div class="track">
         <svg id="spark" aria-hidden="true" viewBox="0 0 1000 40" preserveAspectRatio="none"></svg>
         <div id="events" class="events"></div>
-        <input id="year" type="range" step="1" aria-label="Year" />
+        <input id="year" type="range" min="{{firstYear}}" max="{{lastYear}}" step="1" aria-label="Year" />
       </div>
       <span id="year-max" class="year-end"></span>
       <output id="year-label" class="year-label" for="year"></output>

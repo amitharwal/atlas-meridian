@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://amitharwal.github.io/atlas-meridian/",
   "scripts": {
     "dev": "vite",
     "build": "vite build && node pipeline/build_profiles.mjs",

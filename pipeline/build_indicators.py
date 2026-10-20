@@ -106,9 +106,35 @@ def get(url, attempts=5):
             time.sleep(5 * (attempt + 1))
 
 
+def get_rows(url):
+    """Every row of a World Bank API list, page by page.
+
+    The API answers [page info, rows]. If something is wrong it sends a message
+    instead, which must stop the update rather than look like an empty list.
+    """
+    rows, page, pages = [], 1, 1
+    while page <= pages:
+        reply = get(f"{url}&page={page}")
+        if not isinstance(reply, list) or len(reply) < 2 or reply[1] is None:
+            raise SystemExit(f"Unexpected reply from the World Bank for {url}: {str(reply)[:300]}")
+        pages = reply[0]["pages"]
+        rows += reply[1]
+        page += 1
+    return rows
+
+
+def previous_count(indicator_id):
+    """How many countries the last saved file for an indicator had, or 0."""
+    try:
+        with (OUTPUT / f"{indicator_id}.json").open() as f:
+            return len(json.load(f)["values"])
+    except (OSError, ValueError, KeyError):
+        return 0
+
+
 def real_countries():
     """Region and income group for actual countries, leaving out groups like 'World' or 'Euro area'."""
-    rows = get(f"{API}/country?format=json&per_page=500")[1]
+    rows = get_rows(f"{API}/country?format=json&per_page=500")
     return {
         CODE_FIXES.get(row["id"], row["id"]): [row["region"]["value"].strip(), row["incomeLevel"]["value"].strip()]
         for row in rows
@@ -141,10 +167,10 @@ def main():
 
     for indicator in INDICATORS:
         last_year = time.gmtime().tm_year
-        rows = get(
+        rows = get_rows(
             f"{API}/country/all/indicator/{indicator['code']}"
-            f"?format=json&per_page=30000&date={FIRST_YEAR}:{last_year}"
-        )[1]
+            f"?format=json&per_page=20000&date={FIRST_YEAR}:{last_year}"
+        )
         values = {}
         for row in rows:
             code = CODE_FIXES.get(row["countryiso3code"], row["countryiso3code"])
@@ -154,6 +180,10 @@ def main():
 
         if len(values) < 100:
             raise SystemExit(f"{indicator['code']}: only {len(values)} countries came back — refusing to overwrite")
+        # A sudden drop usually means a broken download, not countries vanishing.
+        before = previous_count(indicator["id"])
+        if len(values) < 0.9 * before:
+            raise SystemExit(f"{indicator['code']}: {len(values)} countries, down from {before} — refusing to overwrite")
 
         years = sorted({int(y) for by_year in values.values() for y in by_year})
         with (OUTPUT / f"{indicator['id']}.json").open("w") as f:
@@ -178,6 +208,14 @@ def main():
     for code, stats in by_country.items():
         with (STATS / f"{code}.json").open("w") as f:
             json.dump(stats, f, separators=(",", ":"), sort_keys=True)
+    # Files from earlier runs that nothing produces any more: a country the
+    # World Bank stopped covering, or an indicator taken off the list.
+    keep = {f"{i['id']}.json" for i in INDICATORS} | {"index.json", "world.json"}
+    stale = [p for p in STATS.glob("*.json") if p.stem not in by_country]
+    stale += [p for p in OUTPUT.glob("*.json") if p.name not in keep]
+    for path in stale:
+        print(f"Removing {path.relative_to(DATA)}, which is no longer produced")
+        path.unlink()
     with (DATA / "regions.json").open("w") as f:
         json.dump({code: regions[code] for code in sorted(by_country)}, f, separators=(",", ":"), ensure_ascii=False)
     print(f"Wrote {len(by_country)} country files")

@@ -2,11 +2,12 @@
 import { grouped } from './format.js';
 import { makeLayers, UN_GROUP } from './layers.js';
 import { makeSearch } from './search.js';
-import { h, loadSite, showError } from './site.js';
+import { h } from './dom.js';
+import { loadSite, showError } from './site.js';
 
 const site = await loadSite().catch(showError);
 const { places, regions, indicators, topics, speeches, nameOf, hasProfile, profileUrl } = site;
-const layers = makeLayers({ topics, speeches, indicators });
+const layers = makeLayers({ topics, speeches, indicators, years: speeches.years });
 
 const $ = (id) => document.getElementById(id);
 const measure = $('measure');

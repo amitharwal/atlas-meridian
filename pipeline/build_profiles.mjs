@@ -13,7 +13,8 @@ import { againstMedian, formatter, grouped, KEY_FACTS, latest, versus } from '..
 import { navHtml } from '../src/nav.js';
 import { previewPng } from './preview_image.mjs';
 
-const SITE = 'https://amitharwal.github.io/atlas-meridian/';
+// The published address, set once in package.json.
+const SITE = JSON.parse(readFileSync('package.json', 'utf8')).homepage;
 const DIST = 'dist';
 const read = (path) => JSON.parse(readFileSync(`${DIST}/data/${path}`, 'utf8'));
 

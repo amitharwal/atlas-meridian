@@ -34,13 +34,22 @@ test('every indicator has a full data file and a world median', () => {
   }
 });
 
-test('indicators and speech topics fit together', () => {
-  const layers = makeLayers({ topics, speeches, indicators });
+test('indicators and speech topics fit together', async () => {
+  const layers = makeLayers({ topics, speeches, indicators, years: speeches.years });
   const topicIds = new Set(topics.map((t) => t.id));
   const pairs = indicators.filter((i) => i.pairs).map((i) => i.pairs);
   assert.equal(new Set(pairs).size, pairs.length, 'a topic is paired with two indicators');
   for (const pair of pairs) assert.ok(topicIds.has(pair), `pairs with unknown topic ${pair}`);
   assert.equal(layers.speaker.years[1], speeches.years[1], 'speaker map stops before the latest speeches');
+  // Speech maps fill in once the speeches are loaded, all at once.
+  assert.equal(layers.peace.ready, false);
+  await layers.climate.load();
+  for (const topic of topics) {
+    const layer = layers[topic.id];
+    assert.ok(layer.ready && layer.stops.length === 5 && Object.keys(layer.world).length > 50, `${topic.id} wasn't filled in`);
+  }
+  assert.ok(layers.climate.value('FJI', 2021).value > 0);
+  assert.equal(layers.climate.value('FJI', 1950), null);
   for (const shares of Object.values(speeches.shares)) {
     for (const values of Object.values(shares)) assert.equal(values.length, topics.length);
   }

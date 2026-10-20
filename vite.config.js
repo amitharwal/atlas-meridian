@@ -2,13 +2,15 @@ import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 
 // Counts quoted in the pages' text ("34 measures", "1946 to 2025"), worked out
-// from the data so they stay right when it changes. Written in the HTML as
-// {{name}}.
+// from the data so they stay right when it changes, and the site's address.
+// Written in the HTML as {{name}}.
 function siteFacts() {
   const read = (path) => JSON.parse(readFileSync(`public/data/${path}`, 'utf8'));
   const speeches = read('speeches.json');
   const speechCount = Object.values(speeches.shares).reduce((n, years) => n + Object.keys(years).length, 0);
   return {
+    // The published address, for links shared elsewhere (set once, in package.json).
+    site: JSON.parse(readFileSync('package.json', 'utf8')).homepage,
     indicators: read('indicators/index.json').length,
     topics: read('topics.json').length,
     firstYear: speeches.years[0],

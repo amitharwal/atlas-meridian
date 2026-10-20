@@ -1,10 +1,11 @@
 // The compare page: two countries side by side, across every measure.
-import { MAX_GAP } from './chart.js';
+import { chartRange, linePath } from './chart.js';
 import { makeCombobox } from './combobox.js';
 import { formatter, grouped, KEY_FACTS, latest } from './format.js';
 import { loadJson } from './data.js';
 import { makeSearch } from './search.js';
-import { h, loadSite, showError } from './site.js';
+import { h } from './dom.js';
+import { loadSite, showError } from './site.js';
 
 const site = await loadSite().catch(showError);
 const { regions, indicators, topics, speeches, nameOf, todayName, hasProfile, profileUrl } = site;
@@ -39,42 +40,24 @@ const svgEl = (name, attrs) => {
   return node;
 };
 
-// A path through a series, broken where years are missing (as in chart.js).
-// Unlike the map's charts this one allows negative values (growth, inflation).
-function path(series, lo, hi) {
-  let d = '';
-  let drawing = false;
-  let lastSeen = -Infinity;
-  for (let year = YEARS[0]; year <= YEARS[1]; year++) {
-    const v = series?.[year];
-    if (v === undefined) continue;
-    if (year - lastSeen > MAX_GAP) drawing = false;
-    lastSeen = year;
-    const x = ((year - YEARS[0]) / (YEARS[1] - YEARS[0])) * W;
-    const y = H - 2 - ((v - lo) / (hi - lo)) * (H - 4);
-    d += `${drawing ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
-    drawing = true;
-  }
-  return d;
-}
-
 function chart(id, label, seriesA, seriesB) {
   const median = world[id] ?? {};
-  const all = [...Object.values(seriesA ?? {}), ...Object.values(seriesB ?? {}), ...Object.values(median)];
-  if (!all.length) return null;
-  const lo = Math.min(0, ...all);
-  const hi = Math.max(...all) * 1.05 || 1;
+  if (![seriesA, seriesB, median].some((series) => Object.keys(series ?? {}).length)) return null;
+  const { bottom, top } = chartRange(seriesA ?? {}, seriesB ?? {}, median);
+  // Lines are drawn 2px in from the top and bottom, so they're never cut off.
+  const path = (series) => linePath(series ?? {}, YEARS, top, W, H - 4, bottom);
   const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', class: 'pair-chart', role: 'img', 'aria-label': label });
   const cursor = svgEl('line', { y1: 0, y2: H, class: 'pair-now', visibility: 'hidden' });
   // A zero line, when some values fall below it.
-  const zeroY = H - 2 - (-lo / (hi - lo)) * (H - 4);
-  svg.append(
-    lo < 0 ? svgEl('line', { x1: 0, x2: W, y1: zeroY, y2: zeroY, class: 'pair-zero' }) : '',
-    svgEl('path', { d: path(median, lo, hi), class: 'pair-world' }),
-    svgEl('path', { d: path(seriesA, lo, hi), class: 'pair-a' }),
-    svgEl('path', { d: path(seriesB, lo, hi), class: 'pair-b' }),
-    cursor,
+  const zeroY = H - 4 - (-bottom / (top - bottom)) * (H - 4);
+  const lines = svgEl('g', { transform: 'translate(0 2)' });
+  lines.append(
+    bottom < 0 ? svgEl('line', { x1: 0, x2: W, y1: zeroY, y2: zeroY, class: 'pair-zero' }) : '',
+    svgEl('path', { d: path(median), class: 'pair-world' }),
+    svgEl('path', { d: path(seriesA), class: 'pair-a' }),
+    svgEl('path', { d: path(seriesB), class: 'pair-b' }),
   );
+  svg.append(lines, cursor);
   // Hovering shows the three figures for that year.
   const format = formatOf[id];
   svg.addEventListener('pointermove', (e) => {
@@ -237,6 +220,7 @@ const pickA = makeCombobox({
   list: $('pick-a-list'),
   find,
   nameOf: todayName,
+  limit: 8,
   onChoose: (iso) => {
     if (iso === b) b = a;
     a = iso;
@@ -248,6 +232,7 @@ const pickB = makeCombobox({
   list: $('pick-b-list'),
   find,
   nameOf: todayName,
+  limit: 8,
   onChoose: (iso) => {
     if (iso === a) a = b;
     b = iso;

@@ -39,17 +39,28 @@ function increasing(stops) {
   return stops.map((s, i) => s + i * 1e-6);
 }
 
-export function makeLayers({ topics, speeches, indicators }) {
+// `speeches` is the speech data (speeches.json), or a function that loads it:
+// the map only fetches it once a speech map or a country needs it. `years` is
+// the span of the speeches, needed before they arrive.
+export function makeLayers({ topics, speeches, indicators, years }) {
   const layers = {};
+  let shares = {}; // iso3 -> year -> topic shares, once the speeches are in
+  let loading = null;
+  // Every speech map is worked out at once when the speeches arrive.
+  const loadSpeeches = () =>
+    (loading ??= Promise.resolve(typeof speeches === 'function' ? speeches() : speeches).then((data) => {
+      shares = data.shares;
+      for (const topic of topics) fillTopic(layers[topic.id]);
+    }));
 
-  topics.forEach((topic, i) => {
+  function fillTopic(layer) {
     const values = [];
     const sums = {};
-    for (const byYear of Object.values(speeches.shares)) {
-      for (const [year, shares] of Object.entries(byYear)) {
-        values.push(shares[i] / 10);
+    for (const byYear of Object.values(shares)) {
+      for (const [year, row] of Object.entries(byYear)) {
+        values.push(row[layer.index] / 10);
         sums[year] ??= [0, 0];
-        sums[year][0] += shares[i] / 10;
+        sums[year][0] += row[layer.index] / 10;
         sums[year][1] += 1;
       }
     }
@@ -57,21 +68,27 @@ export function makeLayers({ topics, speeches, indicators }) {
     // Fixed across all years so sliding through time shows real change. The top
     // is the 95th percentile, so one unusual speech doesn't wash out the rest.
     const top = Math.max(1, percentile(values, 0.95));
+    layer.stops = [0, 0.25, 0.5, 0.75, 1].map((f) => f * top);
+    layer.world = Object.fromEntries(Object.entries(sums).map(([y, [sum, n]]) => [y, sum / n]));
+    layer.ready = true;
+  }
+
+  topics.forEach((topic, i) => {
     layers[topic.id] = {
       kind: 'topic',
       id: topic.id,
+      index: i,
       label: topic.label,
       group: UN_GROUP,
       short: SHORT[topic.id] ?? topic.label.toLowerCase(),
-      stops: [0, 0.25, 0.5, 0.75, 1].map((f) => f * top),
       format: (v) => `${v.toFixed(1)}%`,
       legendFormat: (v) => `${Math.round(v)}%`,
-      world: Object.fromEntries(Object.entries(sums).map(([y, [sum, n]]) => [y, sum / n])),
       worldLabel: 'World average',
-      ready: true,
+      ready: false,
+      load: loadSpeeches,
       value(iso, year) {
-        const shares = speeches.shares[iso]?.[year];
-        return shares ? { value: shares[i] / 10, year } : null;
+        const row = shares[iso]?.[year];
+        return row ? { value: row[i] / 10, year } : null;
       },
     };
   });
@@ -123,15 +140,16 @@ export function makeLayers({ topics, speeches, indicators }) {
     layers[indicator.id] = layer;
   }
 
-  layers.speaker = speakerLayer(speeches.years[1]);
-  layers.mentions = mentionsLayer(speeches);
+  layers.speaker = speakerLayer(years[1]);
+  layers.mentions = mentionsLayer(loadSpeeches, (iso, year) => Boolean(shares[iso]?.[year]));
   return layers;
 }
 
 // Who talks about whom: each country shaded by how many times its speech
 // named one chosen country (the "target"). Counts come from
-// pipeline/build_mentions.py, one small file per target.
-function mentionsLayer(speeches) {
+// pipeline/build_mentions.py, one small file per target. `spoke(iso, year)`
+// says whether a country gave a speech that year, once `loadSpeeches` is done.
+function mentionsLayer(loadSpeeches, spoke) {
   const cache = {};
   const layer = {
     kind: 'mentions',
@@ -151,7 +169,7 @@ function mentionsLayer(speeches) {
       layer.target = iso;
       layer.ready = false;
       cache[iso] ??= loadJson(`mentions/${iso}.json`).catch(() => ({}));
-      const data = await cache[iso];
+      const [data] = await Promise.all([cache[iso], loadSpeeches()]);
       if (layer.target !== iso) return; // switched again while this loaded
       layer.data = data;
       layer.world = Object.fromEntries(Object.entries(data).map(([y, bySpeaker]) => [y, Object.keys(bySpeaker).length]));
@@ -162,7 +180,7 @@ function mentionsLayer(speeches) {
     },
     // Every country that spoke that year gets a value (0 if it didn't mention the target).
     value(iso, year) {
-      if (iso === layer.target || !speeches.shares[iso]?.[year]) return null;
+      if (iso === layer.target || !spoke(iso, year)) return null;
       return { value: layer.data?.[year]?.[iso] ?? 0, year };
     },
     // How many countries mentioned the target in a year.

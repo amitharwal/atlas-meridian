@@ -1,10 +1,19 @@
-// A text box for picking a country by typing, with a list of matches below it
-// (the compare page's two pickers). Matching comes from search.js, so short,
-// accented and former names all work: "UK", "cote", "USSR".
+// A text box for picking a country by typing, with a list of matches below it.
+// Matching comes from search.js, so short, accented and former names all
+// work: "UK", "cote", "USSR". Used by the map's "Find a country", the compare
+// page's two pickers and the daily game's guesses.
 
 // `input` and `list` are an <input> and an empty <ul> from the page; `find` is
-// from makeSearch. Returns `set(iso)`, which shows the chosen country's name.
-export function makeCombobox({ input, list, find, nameOf, onChoose }) {
+// from makeSearch; `onChoose(iso)` is called with the chosen country.
+//
+// Two ways to use it:
+// - a search box (the default) empties itself once a country is chosen;
+// - a picker (pass `nameOf`) shows the chosen country's name, set with the
+//   returned `set(iso)`, and puts it back if the reader leaves without choosing.
+//
+// `onOpen` runs when the list opens (the map closes its other pop-overs).
+export function makeCombobox({ input, list, find, onChoose, nameOf = null, onOpen = () => {}, limit = 6 }) {
+  const picker = Boolean(nameOf);
   let current = null;
   let matches = [];
   let active = 0;
@@ -31,7 +40,7 @@ export function makeCombobox({ input, list, find, nameOf, onChoose }) {
   }
 
   function show() {
-    matches = find(input.value, 8);
+    matches = find(input.value, limit);
     active = 0;
     if (!input.value.trim()) return close();
     list.replaceChildren(
@@ -59,6 +68,7 @@ export function makeCombobox({ input, list, find, nameOf, onChoose }) {
           })
         : [Object.assign(document.createElement('li'), { className: 'pick-empty', textContent: 'No country by that name' })]),
     );
+    onOpen();
     list.hidden = false;
     input.setAttribute('aria-expanded', 'true');
     highlight();
@@ -68,6 +78,7 @@ export function makeCombobox({ input, list, find, nameOf, onChoose }) {
     const match = matches[i];
     if (!match) return;
     close();
+    if (!picker) input.value = '';
     input.blur();
     onChoose(match.iso);
   }
@@ -77,8 +88,11 @@ export function makeCombobox({ input, list, find, nameOf, onChoose }) {
     input.value = nameOf(iso);
   }
 
-  // Clicking in selects the whole name, so typing replaces it.
-  input.addEventListener('focus', () => input.select());
+  input.addEventListener('focus', () => {
+    // A picker selects the whole name, so typing replaces it.
+    if (picker) input.select();
+    else if (input.value.trim()) show();
+  });
   input.addEventListener('input', show);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -91,16 +105,21 @@ export function makeCombobox({ input, list, find, nameOf, onChoose }) {
       e.preventDefault();
       choose(active);
     } else if (e.key === 'Escape') {
+      // Escape only clears the box; it shouldn't also close what's behind it.
+      e.stopPropagation();
       close();
-      set(current);
-      input.select();
+      if (picker && current) {
+        set(current);
+        input.select();
+      } else {
+        input.value = '';
+      }
     }
   });
-  // Leaving without choosing puts the current country's name back.
   input.addEventListener('blur', () => {
     close();
-    if (current) set(current);
+    if (picker && current) set(current);
   });
 
-  return { set };
+  return { set, close };
 }

@@ -10,6 +10,8 @@ import { loadJson, makeNamer, shapeInfo, slugOf, withThe } from './data.js';
 import { formatter } from './format.js';
 import { answersFor, gameNumber, random } from './game.js';
 import { fillNav } from './nav.js';
+import { makeCombobox } from './combobox.js';
+import { h } from './dom.js';
 import { makeSearch } from './search.js';
 import './daily.css';
 
@@ -19,7 +21,6 @@ setWorkerUrl(workerUrl);
 const ROUNDS = 5;
 const GUESSES = 3;
 const LEVELS = ['Very easy', 'Easy', 'Medium', 'Hard', 'Very hard'];
-const SITE = 'https://amitharwal.github.io/atlas-meridian/daily/';
 const STORE = 'atlas-meridian:country-game:';
 // One coloured square per round in the shared result: first, second, third guess, missed.
 const SQUARES = ['🟩', '🟨', '🟧', '⬛'];
@@ -30,17 +31,6 @@ const toast = $('toast');
 const mapStatus = $('map-status');
 
 // ---- Small helpers ----------------------------------------------------------
-
-function h(tag, attrs = {}, ...children) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v === null || v === undefined) continue;
-    if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
-    else node.setAttribute(k, v);
-  }
-  node.append(...children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false));
-  return node;
-}
 
 // Local storage can be unavailable (private browsing); the game still works.
 const saved = {
@@ -256,63 +246,9 @@ function progress(state) {
 }
 
 function guessBox(onGuess) {
-  const input = h('input', {
-    id: 'guess',
-    type: 'search',
-    placeholder: 'Type a country',
-    autocomplete: 'off',
-    spellcheck: 'false',
-    'aria-label': 'Your guess',
-    role: 'combobox',
-    'aria-expanded': 'false',
-    'aria-controls': 'guess-list',
-  });
-  const list = h('ul', { id: 'guess-list', class: 'guess-list', role: 'listbox', hidden: '' });
-  let matches = [];
-  let active = 0;
-  const show = () => {
-    matches = find(input.value, 6);
-    active = 0;
-    list.hidden = !matches.length;
-    input.setAttribute('aria-expanded', String(matches.length > 0));
-    list.replaceChildren(
-      ...matches.map((m, i) =>
-        h(
-          'li',
-          {
-            role: 'option',
-            class: 'guess-option',
-            'aria-selected': String(i === active),
-            // pointerdown, not click, so it fires before the box loses focus.
-            onpointerdown: (e) => {
-              e.preventDefault();
-              choose(i);
-            },
-          },
-          m.name,
-        ),
-      ),
-    );
-  };
-  const choose = (i) => {
-    if (!matches[i]) return;
-    const iso = matches[i].iso;
-    input.value = '';
-    list.hidden = true;
-    onGuess(iso);
-  };
-  input.addEventListener('input', show);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!matches.length) return;
-      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length;
-      [...list.children].forEach((li, i) => li.setAttribute('aria-selected', String(i === active)));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      choose(active);
-    }
-  });
+  const input = h('input', { id: 'guess', type: 'search', placeholder: 'Type a country', 'aria-label': 'Your guess' });
+  const list = h('ul', { id: 'guess-list', class: 'guess-list', hidden: '' });
+  makeCombobox({ input, list, find, onChoose: onGuess });
   return h('div', { class: 'guess-box' }, input, list);
 }
 
@@ -383,7 +319,8 @@ function results(state) {
   const total = scores.reduce((a, b) => a + b, 0);
   const squares = scores.map(squareOf).join('');
   const share = async () => {
-    const text = `Atlas Meridian · Guess the Country #${state.number}\n${total}/${ROUNDS * GUESSES} ${squares}\n${SITE}`;
+    // The address of this page, wherever the site is published.
+    const text = `Atlas Meridian · Guess the Country #${state.number}\n${total}/${ROUNDS * GUESSES} ${squares}\n${location.origin}${location.pathname}`;
     try {
       if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ text });
       else {

@@ -22,17 +22,6 @@ export async function loadSite() {
   return { places, regions, indicators, topics, speeches, nameOf, todayName, hasProfile, profileUrl };
 }
 
-// Tiny element builder; text always goes in as text, never as HTML.
-export function h(tag, attrs = {}, ...children) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
-    else node.setAttribute(k, v);
-  }
-  node.append(...children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false));
-  return node;
-}
-
 export function showError(error) {
   const status = document.getElementById('status');
   status.textContent = "Couldn't load the data. Please check your connection and refresh the page.";

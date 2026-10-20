@@ -32,7 +32,9 @@ It's a free, open-source static website: no accounts, no tracking, no server.
 2. **"Speaks most like"** compares the average vectors of speeches given in the same year.
    It measures talking about the same things, not friendship.
 3. **Statistics.** `pipeline/build_indicators.py` downloads 34 World Bank series (the list, their
-   groups and labels are at the top of that file; adding one is one line). It writes one file per
+   groups and labels are at the top of that file; adding one is one line). Money figures are in constant
+   2015 US dollars, so years can be compared. The script refuses to save a download that
+   looks broken (too few countries, or far fewer than last time). It writes one file per
    measure for the map, one per country for its card and pages, and the median country for each
    year. A GitHub Action refreshes them monthly and redeploys the site.
 4. **Extra data** from the speeches: `pipeline/build_speakers.py` (who gave each speech) and
@@ -41,7 +43,8 @@ It's a free, open-source static website: no accounts, no tracking, no server.
    game (by land area, population and economy, plus any hand moves listed in the file). It's run
    by hand with `npm run build:game`, so the game's schedule doesn't change when the data does.
 5. **Country fact sheets** are static pages generated at build time by `pipeline/build_profiles.mjs`
-   (`npm run build` runs it after Vite), along with `sitemap.xml` for search engines.
+   (`npm run build` runs it after Vite), along with `sitemap.xml` for search engines. Each gets its
+   own picture for when the link is shared (`pipeline/preview_image.mjs`, drawn with resvg).
 6. **The site** is plain JavaScript built with Vite: the map (`index.html`, `src/main.js`), with
    [MapLibre GL](https://maplibre.org/) drawing it; `rankings/`, `compare/` and `daily/`, each with
    its own script in `src/`. All data is pre-computed JSON in `public/data/`.
@@ -72,8 +75,19 @@ display only and imply no position on disputed territory.
 ```sh
 npm install
 npm run dev        # local preview at http://localhost:5173
+npm test           # checks the code and the data in public/data
 npm run build      # static site in dist/
 ```
+
+The site's published address is set once, as `homepage` in `package.json`. Counts quoted in
+the pages ("34 measures", "1946 to 2025") are filled in from the data when the site is built.
+The fonts (Source Serif 4 and IBM Plex Sans) are bundled with the site, so no page loads
+anything from another server.
+
+Both GitHub Actions run `npm test` first: the site isn't published, and the monthly data
+update isn't saved, if a check fails. The daily game's schedule is compared with a saved
+copy in `tests/fixtures/`; if you change the game's tiers on purpose (`npm run build:game`),
+delete `tests/fixtures/game-schedule.json` and run the tests again to save the new schedule.
 
 Refreshing the data needs Python 3.11:
 

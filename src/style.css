@@ -367,7 +367,7 @@ button {
   list-style: none;
 }
 
-.find-option {
+.pick-option {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -376,17 +376,17 @@ button {
   cursor: pointer;
 }
 
-.find-option[aria-selected='true'],
-.find-option:hover {
+.pick-option[aria-selected='true'],
+.pick-option:hover {
   background: var(--surface-hover);
 }
 
-.find-alt {
+.pick-alt {
   color: var(--text-muted);
   font-size: 12px;
 }
 
-.find-empty {
+.pick-empty {
   padding: 8px 10px;
   color: var(--text-muted);
 }

@@ -150,15 +150,28 @@ h1 {
   display: none;
 }
 
-.guess-option {
+.pick-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
   padding: 8px 10px;
   border-radius: 6px;
   cursor: pointer;
 }
 
-.guess-option[aria-selected='true'],
-.guess-option:hover {
+.pick-option[aria-selected='true'],
+.pick-option:hover {
   background: var(--surface-hover);
+}
+
+.pick-alt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.pick-empty {
+  padding: 8px 10px;
+  color: var(--text-muted);
 }
 
 .guesses {

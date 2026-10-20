@@ -1,17 +1,7 @@
 // The small pop-overs: the top-10 list and the country card.
 import { miniChart } from './chart.js';
+import { h } from './dom.js';
 import { againstMedian, KEY_FACTS, versus } from './format.js';
-
-// Tiny element builder; text always goes in as text, never as HTML.
-function h(tag, attrs = {}, ...children) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
-    else node.setAttribute(k, v);
-  }
-  node.append(...children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false));
-  return node;
-}
 
 const pct = (v) => `${v.toFixed(1)}%`;
 // Lower-case a label for use mid-sentence, unless it starts with an acronym (CO₂, UN).

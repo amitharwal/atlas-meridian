@@ -8,6 +8,7 @@ import { grouped } from './format.js';
 import { makeLayers, pairOf, ranking, UN_GROUP, yearRange } from './layers.js';
 import { fillNav } from './nav.js';
 import { renderCard, renderRankings } from './panel.js';
+import { makeCombobox } from './combobox.js';
 import { makeSearch } from './search.js';
 import './style.css';
 
@@ -34,11 +35,10 @@ const EVENTS = [
 ];
 
 const loading = document.getElementById('loading');
-let topology, speeches, topics, indicators;
+let topology, topics, indicators;
 try {
-  [topology, speeches, topics, indicators] = await Promise.all([
+  [topology, topics, indicators] = await Promise.all([
     loadJson('countries.topo.json'),
-    loadJson('speeches.json'),
     loadJson('topics.json'),
     loadJson('indicators/index.json'),
   ]);
@@ -47,10 +47,21 @@ try {
   loading.classList.add('is-error');
   throw error;
 }
+// The UN speeches are the biggest file, and the map opens on a statistic, so
+// they're fetched once something needs them (a speech map, or a country's card)
+// or once the map is up. Until then the years they span come from the page
+// (filled in when the site is built), and no country has any speeches.
+const slider = document.getElementById('year');
+let speeches = { years: [+slider.min, +slider.max], shares: {} };
+let speechesLoading = null;
+const loadSpeeches = () => (speechesLoading ??= loadJson('speeches.json'));
+
 // The shapes arrive packed as TopoJSON (much smaller); unpack them to GeoJSON.
 const countries = feature(topology, topology.objects.countries);
-const layers = makeLayers({ topics, speeches, indicators });
+const layers = makeLayers({ topics, speeches: loadSpeeches, indicators, years: speeches.years });
 const nameOf = makeNamer(countries);
+// Any code we have a name for: a place on the map, or a former UN member.
+const isPlace = (iso) => Boolean(iso) && iso !== 'ATA' && nameOf(iso, 9999) !== iso;
 const { centreOf, dots } = shapeInfo(countries);
 const smallPlaces = new Set(dots.features.map((f) => f.properties.iso3));
 const continentOf = {
@@ -70,14 +81,14 @@ if (layers[params.get('layer')]) state.layer = params.get('layer');
 // "Who talks about whom" needs a country to be about.
 if (state.layer === 'mentions') {
   const target = params.get('target');
-  if (speeches.shares[target] || centreOf[target]) layers.mentions.target = target;
+  if (isPlace(target)) layers.mentions.target = target;
   else state.layer = DEFAULT_LAYER;
 }
 if (layers[state.layer].kind === 'topic') state.lastTopic = state.layer;
 if (+params.get('year') >= FIRST_YEAR && +params.get('year') <= LAST_YEAR) state.year = +params.get('year');
 // With no year in the link, open on the latest year the chosen measure has.
 else if (layers[state.layer].years) state.year = Math.min(LAST_YEAR, layers[state.layer].years[1]);
-if (speeches.shares[params.get('country')] || centreOf[params.get('country')]) state.country = params.get('country');
+if (isPlace(params.get('country'))) state.country = params.get('country');
 
 function saveToUrl() {
   const p = new URLSearchParams({ layer: state.layer, year: state.year });
@@ -334,6 +345,18 @@ mapReady.then(async () => {
   paintLayer();
   loading.hidden = true;
   if (state.country) selectCountry(state.country);
+  // Now the map is up, fetch the speeches in the background. (Loading one
+  // speech map fills in all of them, which the card's UN line needs.)
+  Promise.all([loadSpeeches(), layers[topics[0].id].load()])
+    .then(([data]) => {
+      speeches = data;
+      find = makeSearch(searchCodes(), nameOf);
+      if (state.country) {
+        loadDetails(state.country);
+        refreshCard();
+      }
+    })
+    .catch(() => {}); // a speech map will say so if it's needed
 });
 
 // ---- Pop-overs: only one open at a time -----------------------------------
@@ -363,86 +386,18 @@ function closePopovers(except) {
 
 const findInput = document.getElementById('find');
 const findResults = document.getElementById('find-results');
-const find = makeSearch(
-  [...new Set([...Object.keys(centreOf), ...Object.keys(speeches.shares)])].filter((iso) => iso !== 'ATA'),
-  nameOf,
-);
-let findMatches = [];
-let findActive = 0;
-
-function showMatches() {
-  findMatches = find(findInput.value);
-  findActive = 0;
-  if (!findInput.value.trim()) {
+// Every place on the map, plus former UN members once the speeches are in.
+const searchCodes = () => [...new Set([...Object.keys(centreOf), ...Object.keys(speeches.shares)])].filter((iso) => iso !== 'ATA');
+let find = makeSearch(searchCodes(), nameOf);
+makeCombobox({
+  input: findInput,
+  list: findResults,
+  find: (query, limit) => find(query, limit),
+  onOpen: () => closePopovers(findResults),
+  onChoose: (iso) => {
     closePopovers();
-    return;
-  }
-  closePopovers(findResults);
-  findResults.replaceChildren(
-    ...(findMatches.length
-      ? findMatches.map((match, i) => {
-          const option = document.createElement('li');
-          option.className = 'find-option';
-          option.id = `find-${match.iso}`;
-          option.setAttribute('role', 'option');
-          option.setAttribute('aria-selected', String(i === findActive));
-          const name = document.createElement('span');
-          name.textContent = match.name;
-          option.append(name);
-          if (match.former.length) {
-            const alt = document.createElement('span');
-            alt.className = 'find-alt';
-            alt.textContent = `was ${match.former.join(', ')}`;
-            option.append(alt);
-          }
-          // pointerdown, not click, so it fires before the box loses focus.
-          option.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
-            chooseMatch(i);
-          });
-          return option;
-        })
-      : [Object.assign(document.createElement('li'), { className: 'find-empty', textContent: 'No country by that name' })]),
-  );
-  findResults.hidden = false;
-  findInput.setAttribute('aria-expanded', 'true');
-  highlightMatch();
-}
-
-function highlightMatch() {
-  [...findResults.querySelectorAll('.find-option')].forEach((option, i) =>
-    option.setAttribute('aria-selected', String(i === findActive)),
-  );
-  const active = findMatches[findActive];
-  if (active) findInput.setAttribute('aria-activedescendant', `find-${active.iso}`);
-  else findInput.removeAttribute('aria-activedescendant');
-}
-
-function chooseMatch(i) {
-  const match = findMatches[i];
-  if (!match) return;
-  findInput.value = '';
-  findInput.blur();
-  closePopovers();
-  selectCountry(match.iso);
-}
-
-findInput.addEventListener('input', showMatches);
-findInput.addEventListener('focus', () => findInput.value.trim() && showMatches());
-findInput.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (!findMatches.length) return;
-    findActive = (findActive + (e.key === 'ArrowDown' ? 1 : -1) + findMatches.length) % findMatches.length;
-    highlightMatch();
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    chooseMatch(findActive);
-  } else if (e.key === 'Escape') {
-    findInput.value = '';
-    closePopovers();
-    e.stopPropagation();
-  }
+    selectCountry(iso);
+  },
 });
 
 // Clicking anywhere outside the open pop-over closes it.
@@ -625,11 +580,8 @@ rankButton.addEventListener('click', () => {
 
 // ---- Year slider, events and play button ---------------------------------
 
-const slider = document.getElementById('year');
 const yearLabel = document.getElementById('year-label');
 const eventsBox = document.getElementById('events');
-slider.min = FIRST_YEAR;
-slider.max = LAST_YEAR;
 document.getElementById('year-min').textContent = FIRST_YEAR;
 document.getElementById('year-max').textContent = LAST_YEAR;
 slider.addEventListener('input', () => setYear(+slider.value));
@@ -816,15 +768,19 @@ function selectCountry(iso) {
     requestAnimationFrame(() => map.flyTo({ center: centreOf[iso], zoom, padding: clearArea(), speed: 0.8 }));
   }
   loadStats(iso);
-  if (speeches.shares[iso] && !(iso in details)) {
-    details[iso] = null;
-    loadJson(`countries/${iso}.json`)
-      .catch(() => ({ years: {} }))
-      .then((detail) => {
-        details[iso] = detail;
-        if (state.country === iso) refreshCard();
-      });
-  }
+  loadDetails(iso);
+}
+
+// A country's quotes and "speaks most like", the first time its card needs them.
+function loadDetails(iso) {
+  if (!speeches.shares[iso] || iso in details) return;
+  details[iso] = null;
+  loadJson(`countries/${iso}.json`)
+    .catch(() => ({ years: {} }))
+    .then((detail) => {
+      details[iso] = detail;
+      if (state.country === iso) refreshCard();
+    });
 }
 
 function closeCountry() {
