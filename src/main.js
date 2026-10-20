@@ -4,7 +4,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { feature } from 'topojson-client';
 import { drawSparkline } from './chart.js';
 import { loadJson, makeNamer, shapeInfo, slugOf } from './data.js';
-import { grouped } from './format.js';
+import { grouped, shortFormatter } from './format.js';
 import { makeLayers, pairOf, ranking, UN_GROUP, yearRange } from './layers.js';
 import { fillNav } from './nav.js';
 import { renderCard, renderRankings } from './panel.js';
@@ -282,17 +282,12 @@ function paintYear() {
 const legend = document.getElementById('legend');
 const legendTicks = [...document.querySelectorAll('.legend-tick')];
 
-// Short numbers for under the colour bar: no units like " yrs", and two
-// significant figures, so three fit side by side.
-const shortNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumSignificantDigits: 2 });
+// Short numbers for under the colour bar, so three fit side by side.
 function tickFormat(layer) {
   if (layer.kind === 'topic') return (v) => `${Math.round(v)}%`;
   if (layer.kind === 'mentions') return (v) => String(Math.round(v));
-  // (An indicator's own `format` is replaced by its formatting function, so read it from the list.)
-  const format = indicators.find((i) => i.id === layer.id)?.format;
-  if (format === 'usd') return (v) => `${v < 0 ? '−' : ''}$${shortNumber.format(Math.abs(v))}`;
-  if (format === 'pct') return (v) => `${shortNumber.format(v)}%`;
-  return (v) => shortNumber.format(v);
+  // (An indicator layer's `format` is its formatting function, so read the kind from the list.)
+  return shortFormatter(indicators.find((i) => i.id === layer.id));
 }
 const spark = document.getElementById('spark');
 

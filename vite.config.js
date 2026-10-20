@@ -50,6 +50,7 @@ export default defineConfig({
         daily: 'daily/index.html',
         rankings: 'rankings/index.html',
         compare: 'compare/index.html',
+        chart: 'chart/index.html',
         fonts: 'src/fonts.css',
       },
     },

@@ -11,6 +11,15 @@ export function formatter({ format, suffix = '' }) {
   return (v) => `${compact.format(v)}${suffix}`;
 }
 
+// Short numbers for tight spaces (the map's colour key, chart axes): no
+// units like " yrs", and two significant figures. "$1.4K", "12%", "4.3M".
+const short = new Intl.NumberFormat('en', { notation: 'compact', maximumSignificantDigits: 2 });
+export function shortFormatter({ format }) {
+  if (format === 'usd') return (v) => `${v < 0 ? '−' : ''}$${short.format(Math.abs(v))}`;
+  if (format === 'pct') return (v) => `${short.format(v)}%`;
+  return (v) => short.format(v);
+}
+
 // "3.6× world avg", "+40% vs world avg", "≈ world avg", "−40% vs world avg".
 // Only meaningful for positive figures (not growth or inflation, which can be negative).
 export function versus(value, typical, what) {

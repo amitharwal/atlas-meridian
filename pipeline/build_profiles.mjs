@@ -384,7 +384,7 @@ writeFileSync(
   }),
 );
 
-const urls = [SITE, `${SITE}rankings/`, `${SITE}compare/`, `${SITE}daily/`, `${SITE}country/`, ...sorted.map((iso) => `${SITE}country/${slug[iso]}/`)];
+const urls = [SITE, `${SITE}rankings/`, `${SITE}compare/`, `${SITE}chart/`, `${SITE}daily/`, `${SITE}country/`, ...sorted.map((iso) => `${SITE}country/${slug[iso]}/`)];
 writeFileSync(
   `${DIST}/sitemap.xml`,
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls

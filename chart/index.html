@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chart · Atlas Meridian</title>
+    <meta name="description" content="Plot any two of {{indicators}} World Bank measures against each other, one dot per country, and play through the years since 1960." />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{{site}}chart/" />
+    <meta property="og:title" content="Chart any two measures · Atlas Meridian" />
+    <meta property="og:description" content="One dot per country: GDP per person against life expectancy, or any two of {{indicators}} World Bank measures, year by year since 1960." />
+    <meta property="og:image" content="{{site}}og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <header class="site-nav is-static" data-page="chart"></header>
+    <main class="page page-wide">
+      <h1>Chart any two measures</h1>
+      <p class="sub">One dot per country, sized by population. Pick two measures, then slide or play through the years. Figures last updated {{updated}}.</p>
+
+      <form class="controls" onsubmit="return false">
+        <label class="control control-wide">Across (→) <select id="pick-x"></select></label>
+        <button id="swap" class="pill swap" type="button" aria-label="Swap the two measures">⇄</button>
+        <label class="control control-wide">Up (↑) <select id="pick-y"></select></label>
+        <label class="control">Dot size
+          <select id="pick-size">
+            <option value="pop">Population</option>
+            <option value="same">All the same</option>
+          </select>
+        </label>
+        <div class="control control-wide">
+          <label for="find">Highlight a country</label>
+          <div class="country-pick"><input id="find" type="search" placeholder="Type a country" /><ul id="find-list" class="pick-list" aria-label="Matching countries" hidden></ul></div>
+        </div>
+      </form>
+
+      <div class="regions" id="regions" role="group" aria-label="Highlight a region"></div>
+      <div class="picked" id="picked" aria-live="polite"></div>
+
+      <p id="status" class="note" role="status">Loading…</p>
+      <figure class="scatter-figure" id="figure" hidden>
+        <svg id="scatter" class="scatter" role="img"></svg>
+        <div class="scatter-time">
+          <button id="play" class="play" type="button" aria-label="Play through the years">
+            <svg class="icon-play" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>
+            <svg class="icon-pause" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+          </button>
+          <span id="year-min" class="muted small"></span>
+          <input id="year" type="range" step="1" aria-label="Year" />
+          <span id="year-max" class="muted small"></span>
+          <output id="year-label" class="scatter-year" for="year"></output>
+        </div>
+        <figcaption id="caption" class="note"></figcaption>
+      </figure>
+
+      <details class="scatter-table" id="table-box">
+        <summary>Show the figures as a table</summary>
+        <table class="rank-table">
+          <thead id="table-head"></thead>
+          <tbody id="table-rows"></tbody>
+        </table>
+      </details>
+    </main>
+    <div id="chart-tip" class="chart-tip" hidden></div>
+    <script type="module" src="/src/scatter.js"></script>
+  </body>
+</html>

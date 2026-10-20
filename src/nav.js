@@ -7,6 +7,7 @@ export const NAV = [
   ['countries', 'Countries', 'country/'],
   ['rankings', 'Rankings', 'rankings/'],
   ['compare', 'Compare', 'compare/'],
+  ['chart', 'Chart', 'chart/'],
   ['daily', 'Puzzle', 'daily/'],
 ];
 
@@ -22,4 +23,11 @@ export function navHtml(root, current) {
 export function fillNav(root) {
   const header = document.querySelector('.site-nav');
   header.innerHTML = navHtml(root, header.dataset.page);
+  // On narrow screens the links scroll sideways; start with this page's in view.
+  const links = header.querySelector('.nav-links');
+  const current = links.querySelector('[aria-current]');
+  if (current && links.scrollWidth > links.clientWidth) {
+    const offset = current.getBoundingClientRect().left - links.getBoundingClientRect().left;
+    links.scrollLeft = offset - (links.clientWidth - current.offsetWidth) / 2;
+  }
 }

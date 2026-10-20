@@ -1,0 +1,252 @@
+/* The chart page: any two measures against each other, one dot per country.
+   Builds on pages.css. */
+
+.page-wide {
+  max-width: 1120px;
+}
+
+/* ---- Region and country highlights ---- */
+
+.regions,
+.picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.picked:empty {
+  display: none;
+}
+
+.region-chip {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-soft);
+  font: 13px 'IBM Plex Sans', system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.region-chip:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.region-chip[aria-pressed='true'] {
+  border-color: var(--strong);
+  background: var(--strong);
+  color: var(--on-strong);
+}
+
+.picked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 11px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  font-size: 13px;
+}
+
+.picked-chip a {
+  color: var(--text);
+}
+
+.picked-chip button {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.picked-chip button:hover {
+  background: var(--line);
+  color: var(--text);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---- The chart ---- */
+
+.scatter-figure {
+  margin: 0;
+}
+
+.scatter {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: manipulation;
+}
+
+.grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.grid text {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.axis-title text {
+  fill: var(--text-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* The year, large and faint behind the dots. */
+.watermark {
+  fill: var(--line);
+  font-family: 'Source Serif 4 Variable', Georgia, serif;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Each dot has a ring in the background colour, so overlapping dots stay apart. */
+.dot {
+  fill: var(--ramp-2);
+  stroke: var(--bg);
+  stroke-width: 1.5;
+  opacity: 0.9;
+  transition:
+    transform 0.55s ease,
+    opacity 0.3s,
+    r 0.55s ease;
+}
+
+.dot.is-strong {
+  fill: var(--ramp-4);
+  opacity: 1;
+}
+
+.dot.is-faded {
+  opacity: 0.18;
+}
+
+/* Countries with no figures that year are hidden, highlighted or not. */
+.dot.is-missing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.trail {
+  fill: none;
+  stroke: var(--ramp-4);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  opacity: 0.45;
+}
+
+.label {
+  transition: transform 0.55s ease;
+  pointer-events: none;
+}
+
+/* Names wear a halo in the background colour so they read over dots. */
+.label text {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.hover-ring {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.is-redrawing .dot,
+.is-redrawing .label {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot,
+  .label {
+    transition: none;
+  }
+}
+
+/* ---- Year slider ---- */
+
+.scatter-time {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 10px;
+}
+
+.scatter-time input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--strong);
+}
+
+.play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--strong);
+  color: var(--on-strong);
+  cursor: pointer;
+}
+
+.play .icon-pause,
+.play.is-playing .icon-play {
+  display: none;
+}
+
+.play.is-playing .icon-pause {
+  display: block;
+}
+
+.scatter-year {
+  min-width: 3ch;
+  font: 600 22px 'Source Serif 4 Variable', Georgia, serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Table ---- */
+
+.scatter-table {
+  margin-top: 20px;
+}
+
+.scatter-table summary {
+  color: var(--text-soft);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.scatter-table table {
+  margin-top: 12px;
+}

@@ -13,6 +13,8 @@ the environment, technology, safety) and see it on an interactive world map, yea
 - **Rankings** (`/rankings/`): every country ranked by any measure and year, filtered by region,
   income group or name.
 - **Compare** (`/compare/`): any two countries side by side, with charts back to 1960.
+- **Chart** (`/chart/`): any two measures against each other, one dot per country sized by
+  population, playing through the years. Pick out a region or follow chosen countries' paths.
 - **At the UN**: every September, each UN member gives a speech at the General Assembly's
   General Debate. Atlas Meridian reads all of them (over 11,000 from 1946 to 2025), sorts what
   each country talked about into 16 topics, and maps that too, along with who gave each speech
@@ -46,7 +48,7 @@ It's a free, open-source static website: no accounts, no tracking, no server.
    (`npm run build` runs it after Vite), along with `sitemap.xml` for search engines. Each gets its
    own picture for when the link is shared (`pipeline/preview_image.mjs`, drawn with resvg).
 6. **The site** is plain JavaScript built with Vite: the map (`index.html`, `src/main.js`), with
-   [MapLibre GL](https://maplibre.org/) drawing it; `rankings/`, `compare/` and `daily/`, each with
+   [MapLibre GL](https://maplibre.org/) drawing it; `rankings/`, `compare/`, `chart/` and `daily/`, each with
    its own script in `src/`. All data is pre-computed JSON in `public/data/`.
 
 ### Accuracy
