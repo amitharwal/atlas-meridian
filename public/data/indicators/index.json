@@ -89,13 +89,14 @@
  },
  {
   "id": "gdp",
-  "code": "NY.GDP.MKTP.CD",
+  "code": "NY.GDP.MKTP.KD",
   "label": "Size of the economy (GDP)",
-  "unit": "US$",
+  "unit": "US$ at 2015 prices",
   "format": "usd",
   "group": "Economy",
   "source": "national accounts data",
   "keywords": "gdp economy output total",
+  "note": "Adjusted for inflation (2015 US dollars), so years can be compared.",
   "years": [
    1960,
    2025
@@ -103,14 +104,15 @@
  },
  {
   "id": "gdp_pc",
-  "code": "NY.GDP.PCAP.CD",
+  "code": "NY.GDP.PCAP.KD",
   "label": "GDP per person",
-  "unit": "US$",
+  "unit": "US$ at 2015 prices",
   "format": "usd",
   "group": "Economy",
   "pairs": "development",
   "source": "national accounts data",
   "keywords": "economy wealth income rich poor money",
+  "note": "Adjusted for inflation (2015 US dollars), so years can be compared.",
   "years": [
    1960,
    2025

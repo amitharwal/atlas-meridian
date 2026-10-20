@@ -6,7 +6,7 @@
 // Runs after `vite build` (see package.json), reading the data in dist/data
 // and writing into dist/.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { linePath } from '../src/chart.js';
+import { chartRange, linePath } from '../src/chart.js';
 import { makeNamer, slugOf, speakerLabel } from '../src/data.js';
 import { againstMedian, formatter, grouped, KEY_FACTS, latest, versus } from '../src/format.js';
 import { navHtml } from '../src/nav.js';
@@ -52,16 +52,12 @@ const median = (xs) => {
   return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
 };
 // A small line chart: the country (solid) against the world (dashed).
-// Figures that can go below zero (growth, inflation) are lifted so zero
-// sits above the bottom edge.
+// Figures that can go below zero (growth, inflation) keep zero above the bottom edge.
 function chart(country, world, label, years = YEARS) {
-  const values = [...Object.values(country), ...Object.values(world)];
-  const lo = Math.min(0, ...values);
-  const lift = (series) => Object.fromEntries(Object.entries(series).map(([y, v]) => [y, v - lo]));
-  const top = (Math.max(...values, 1e-9) - lo) * 1.08;
+  const { bottom, top } = chartRange(country, world);
   return `<svg class="chart" viewBox="0 0 300 70" preserveAspectRatio="none" role="img" aria-label="${escape(label)}">
-<path class="chart-world" d="${linePath(lift(world), years, top, 300, 70)}"/>
-<path class="chart-country" d="${linePath(lift(country), years, top, 300, 70)}"/></svg>`;
+<path class="chart-world" d="${linePath(world, years, top, 300, 70, bottom)}"/>
+<path class="chart-country" d="${linePath(country, years, top, 300, 70, bottom)}"/></svg>`;
 }
 
 // World Bank figures start in 1960.

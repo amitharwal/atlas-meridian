@@ -39,6 +39,10 @@ ENVIRONMENT = "Environment & energy"
 TECHNOLOGY = "Technology"
 SOCIETY = "Society & safety"
 
+# Money figures are in constant dollars: the map's colours are fixed across all
+# years, so in today's dollars inflation alone would make the past look poor.
+REAL_TERMS = "Adjusted for inflation (2015 US dollars), so years can be compared."
+
 # format: how a value is written. "usd" ($48.2K), "pct" (12.5%), or "number"
 # (3 significant figures, then `suffix`). signed: can go below zero, so it's
 # compared with the median by showing the median ("median 3.1%"), not a ratio. carry: how many years an old figure
@@ -51,8 +55,8 @@ INDICATORS = [
     {"id": "urban", "code": "SP.URB.TOTL.IN.ZS", "label": "Living in cities", "unit": "% of people", "format": "pct", "group": PEOPLE, "source": "UN World Urbanization Prospects", "keywords": "urban towns rural"},
     {"id": "migrants", "code": "SM.POP.TOTL.ZS", "label": "Born abroad", "unit": "% of people", "format": "pct", "group": PEOPLE, "pairs": "migration", "carry": 5, "source": "UN Population Division", "keywords": "migrants immigrants foreign-born migration", "note": "Estimated every five years."},
 
-    {"id": "gdp", "code": "NY.GDP.MKTP.CD", "label": "Size of the economy (GDP)", "unit": "US$", "format": "usd", "group": ECONOMY, "source": "national accounts data", "keywords": "gdp economy output total"},
-    {"id": "gdp_pc", "code": "NY.GDP.PCAP.CD", "label": "GDP per person", "unit": "US$", "format": "usd", "group": ECONOMY, "pairs": "development", "source": "national accounts data", "keywords": "economy wealth income rich poor money"},
+    {"id": "gdp", "code": "NY.GDP.MKTP.KD", "label": "Size of the economy (GDP)", "unit": "US$ at 2015 prices", "format": "usd", "group": ECONOMY, "source": "national accounts data", "keywords": "gdp economy output total", "note": REAL_TERMS},
+    {"id": "gdp_pc", "code": "NY.GDP.PCAP.KD", "label": "GDP per person", "unit": "US$ at 2015 prices", "format": "usd", "group": ECONOMY, "pairs": "development", "source": "national accounts data", "keywords": "economy wealth income rich poor money", "note": REAL_TERMS},
     {"id": "growth", "code": "NY.GDP.MKTP.KD.ZG", "label": "Economic growth", "unit": "% a year", "format": "pct", "signed": True, "group": ECONOMY, "source": "national accounts data", "keywords": "gdp growth recession"},
     {"id": "inflation", "code": "FP.CPI.TOTL.ZG", "label": "Inflation", "unit": "% a year, consumer prices", "format": "pct", "signed": True, "group": ECONOMY, "source": "IMF International Financial Statistics", "keywords": "prices cost of living"},
     {"id": "unemployment", "code": "SL.UEM.TOTL.ZS", "label": "Unemployment", "unit": "% of workforce", "format": "pct", "group": ECONOMY, "source": "International Labour Organization estimates", "keywords": "jobs work jobless"},

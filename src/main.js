@@ -5,7 +5,7 @@ import { feature } from 'topojson-client';
 import { drawSparkline } from './chart.js';
 import { loadJson, makeNamer, shapeInfo, slugOf } from './data.js';
 import { grouped } from './format.js';
-import { makeLayers, pairOf, ranking, UN_GROUP } from './layers.js';
+import { makeLayers, pairOf, ranking, UN_GROUP, yearRange } from './layers.js';
 import { fillNav } from './nav.js';
 import { renderCard, renderRankings } from './panel.js';
 import { makeSearch } from './search.js';
@@ -292,6 +292,7 @@ function paintLayer() {
         ? 'How senior the person who gave the speech was. Titles are recorded from 1994.'
         : `${layer.label} (${layer.unit}). Source: ${layer.source}, via the World Bank`;
   drawSparkline(spark, layer.world, speeches.years);
+  showCoverage();
   paintYear();
   refreshRankings();
 }
@@ -576,7 +577,7 @@ async function setLayer(id) {
 // rather than an empty or near-empty map, move to the nearest year it covers
 // and say so.
 function keepYearInRange(layer) {
-  const [first, last] = layer.years ?? [FIRST_YEAR, LAST_YEAR];
+  const [first, last] = yearRange(layer, [FIRST_YEAR, LAST_YEAR]);
   if (state.year >= first && state.year <= last) return;
   const year = state.year < first ? first : last;
   const message = `${titleOf(layer)}: figures ${state.year < first ? `start in ${first}` : `end in ${last}`}, so showing ${year}`;
@@ -652,6 +653,14 @@ for (const [year, text] of EVENTS) {
   eventsBox.append(button);
 }
 
+// Years the chosen measure doesn't cover show as a dotted stretch of the
+// track, and the slider won't stop on them.
+function showCoverage() {
+  const [first, last] = yearRange(layers[state.layer], [FIRST_YEAR, LAST_YEAR]);
+  slider.style.setProperty('--from', first > FIRST_YEAR ? position(first - 0.5) : '0%');
+  slider.style.setProperty('--to', last < LAST_YEAR ? position(last + 0.5) : '100%');
+}
+
 function showYear() {
   slider.value = state.year;
   slider.style.setProperty('--progress', position(state.year));
@@ -659,7 +668,8 @@ function showYear() {
 }
 
 function setYear(year) {
-  state.year = year;
+  const [first, last] = yearRange(layers[state.layer], [FIRST_YEAR, LAST_YEAR]);
+  state.year = Math.min(last, Math.max(first, year));
   showYear();
   if (state.country) label.textContent = nameOf(state.country, year);
   if (layers[state.layer].ready) paintYear();
@@ -682,11 +692,13 @@ function stopPlaying() {
 
 playButton.addEventListener('click', () => {
   if (timer) return stopPlaying();
-  if (state.year === LAST_YEAR) setYear(FIRST_YEAR);
+  // From the start of the chosen measure's figures, not the start of the timeline.
+  const [first, last] = yearRange(layers[state.layer], [FIRST_YEAR, LAST_YEAR]);
+  if (state.year >= last) setYear(first);
   playButton.classList.add('is-playing');
   playButton.setAttribute('aria-label', 'Pause');
   timer = setInterval(() => {
-    if (state.year >= LAST_YEAR) return stopPlaying();
+    if (state.year >= yearRange(layers[state.layer], [FIRST_YEAR, LAST_YEAR])[1]) return stopPlaying();
     setYear(state.year + 1);
   }, 450);
 });

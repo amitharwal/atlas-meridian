@@ -92,7 +92,7 @@
       <div class="track">
         <svg id="spark" aria-hidden="true" viewBox="0 0 1000 40" preserveAspectRatio="none"></svg>
         <div id="events" class="events"></div>
-        <input id="year" type="range" min="1946" max="2025" step="1" aria-label="Year" />
+        <input id="year" type="range" step="1" aria-label="Year" />
       </div>
       <span id="year-max" class="year-end"></span>
       <output id="year-label" class="year-label" for="year"></output>
@@ -107,7 +107,7 @@
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
       </button>
       <h2>About Atlas Meridian</h2>
-      <p>Atlas Meridian is a free world map of country statistics. Pick any of 34 measures (population,
+      <p>Atlas Meridian is a free world map of country statistics. Pick any of {{indicators}} measures (population,
         the economy, health, education, the environment, technology and more), slide through the years
         since 1960, and click a country for its key facts, its trend and how it compares with the rest
         of the world. The <a href="./rankings/">Rankings</a> page lists every country for any measure, and
@@ -125,10 +125,10 @@
 
       <h3>What countries say at the UN</h3>
       <p>Every September, each UN member gives a speech at the General Assembly's General Debate.
-        The "At the UN" maps read every one of them, from 1946 to 2025 (over 11,000 speeches), and show
+        The "At the UN" maps read every one of them, from {{firstYear}} to {{lastYear}} (over {{speeches}} speeches), and show
         what each country chose to talk about.</p>
       <p>Each speech is split into short passages of about 60 words. A small language model
-        sorts each passage into one of 16 topics, or into none if it's ceremonial (thanking the
+        sorts each passage into one of {{topics}} topics, or into none if it's ceremonial (thanking the
         President, and so on). A country's share for a topic is the percentage of its passages
         sorted into that topic.</p>
       <p>"Speaks most like" compares the overall wording of speeches in the same year. It measures

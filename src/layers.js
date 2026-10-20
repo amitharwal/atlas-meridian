@@ -123,7 +123,7 @@ export function makeLayers({ topics, speeches, indicators }) {
     layers[indicator.id] = layer;
   }
 
-  layers.speaker = speakerLayer();
+  layers.speaker = speakerLayer(speeches.years[1]);
   layers.mentions = mentionsLayer(speeches);
   return layers;
 }
@@ -177,13 +177,13 @@ function mentionsLayer(speeches) {
 // pipeline/build_speakers.py; titles are recorded consistently from 1994.
 export const RANK_LABELS = ['Minister or diplomat', 'Foreign minister', 'Deputy leader', 'Head of state or government'];
 
-function speakerLayer() {
+function speakerLayer(lastYear) {
   const layer = {
     kind: 'speaker',
     id: 'speaker',
     group: UN_GROUP,
     label: 'Who gave the speech',
-    years: [1994, 2025],
+    years: [1994, lastYear],
     // Ranks 0–3 spread across the whole colour scale.
     stops: [0, 0.75, 1.5, 2.25, 3],
     legendLabels: ['Diplomat', 'Leader'],
@@ -242,6 +242,13 @@ export function ranking(layer, year, codes) {
     if (found) rows.push({ iso, ...found });
   }
   return rows.sort((a, b) => b.value - a.value);
+}
+
+// The years the map can show for a layer: its own span (statistics start in
+// 1960 or later, speakers' titles in 1994) within the timeline's `[first, last]`.
+export function yearRange(layer, [first, last]) {
+  if (!layer.years) return [first, last];
+  return [Math.max(first, layer.years[0]), Math.min(last, layer.years[1])];
 }
 
 // The year with the highest world figure, for "peak year" facts.

@@ -585,7 +585,8 @@ button {
   vector-effect: non-scaling-stroke;
 }
 
-.mini-now {
+.mini-now,
+.mini-zero {
   stroke: var(--line);
   vector-effect: non-scaling-stroke;
 }
@@ -801,14 +802,26 @@ button {
   -webkit-appearance: none;
 }
 
+/* Solid between --from and --to (the years the chosen measure covers), dotted outside. */
+.track input {
+  --track: linear-gradient(
+      90deg,
+      transparent var(--from, 0%),
+      var(--strong) var(--from, 0%) var(--progress, 100%),
+      var(--line) var(--progress, 100%) var(--to, 100%),
+      transparent var(--to, 100%)
+    ),
+    repeating-linear-gradient(90deg, var(--line) 0 2px, transparent 2px 5px);
+}
+
 .track input::-webkit-slider-runnable-track {
   height: 2px;
-  background: linear-gradient(90deg, var(--strong) var(--progress, 100%), var(--line) var(--progress, 100%));
+  background: var(--track);
 }
 
 .track input::-moz-range-track {
   height: 2px;
-  background: linear-gradient(90deg, var(--strong) var(--progress, 100%), var(--line) var(--progress, 100%));
+  background: var(--track);
 }
 
 .track input::-webkit-slider-thumb {

@@ -8,6 +8,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { feature } from 'topojson-client';
 import { loadJson, makeNamer, shapeInfo, slugOf, withThe } from './data.js';
 import { formatter } from './format.js';
+import { answersFor, gameNumber, random } from './game.js';
 import { fillNav } from './nav.js';
 import { makeSearch } from './search.js';
 import './daily.css';
@@ -18,8 +19,6 @@ setWorkerUrl(workerUrl);
 const ROUNDS = 5;
 const GUESSES = 3;
 const LEVELS = ['Very easy', 'Easy', 'Medium', 'Hard', 'Very hard'];
-// Game #1 is on this day; each day after is the next number.
-const FIRST_DAY = new Date(2026, 9, 19);
 const SITE = 'https://amitharwal.github.io/atlas-meridian/daily/';
 const STORE = 'atlas-meridian:country-game:';
 // One coloured square per round in the shared result: first, second, third guess, missed.
@@ -41,32 +40,6 @@ function h(tag, attrs = {}, ...children) {
   }
   node.append(...children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false));
   return node;
-}
-
-// A small seeded random generator: the same seed always gives the same sequence.
-function random(seed) {
-  return () => {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function shuffle(items, rand) {
-  const out = [...items];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
-// Today's game number, counted in the player's own time zone.
-function gameNumber(date = new Date()) {
-  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.max(1, Math.round((today - FIRST_DAY) / 86400000) + 1);
 }
 
 // Local storage can be unavailable (private browsing); the game still works.
@@ -152,17 +125,6 @@ const smallPlaces = new Set([
 const members = game.tiers.flat();
 const find = makeSearch(members, nameOf);
 const format = Object.fromEntries(indicators.map((i) => [i.id, formatter(i)]));
-
-// The five answers for a game: one from each tier. Each tier is worked
-// through in a shuffled order, so a country doesn't come back until the rest
-// of its tier has had a turn.
-function answersFor(number) {
-  return game.tiers.map((tier, t) => {
-    const day = number - 1;
-    const cycle = Math.floor(day / tier.length);
-    return shuffle(tier, random((t + 1) * 100003 + cycle))[day % tier.length];
-  });
-}
 
 // Five random countries, one per tier, for practice.
 function practiceAnswers() {
@@ -470,7 +432,7 @@ function results(state) {
 // ---- Running a game ---------------------------------------------------------------
 
 function play({ number, practice }) {
-  const answers = practice ? practiceAnswers() : answersFor(number);
+  const answers = practice ? practiceAnswers() : answersFor(game.tiers, number);
   // Saved progress only counts if it was for these exact countries (the
   // tiers can change when the game is rebuilt).
   const previous = practice ? null : saved.get(number);

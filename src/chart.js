@@ -16,7 +16,9 @@ function el(name, attrs = {}) {
 export const MAX_GAP = 5;
 
 // An SVG path through `series` (year -> value), broken where years are missing.
-export function linePath(series, [first, last], top, w, h) {
+// Values run from `bottom` (the lower edge) to `top`; `bottom` is below zero for
+// figures that can be negative, such as growth and inflation.
+export function linePath(series, [first, last], top, w, h, bottom = 0) {
   let d = '';
   let drawing = false;
   let lastSeen = -Infinity;
@@ -26,17 +28,26 @@ export function linePath(series, [first, last], top, w, h) {
     if (year - lastSeen > MAX_GAP) drawing = false;
     lastSeen = year;
     const x = ((year - first) / (last - first)) * w;
-    const y = h - (Math.min(v, top) / top) * h;
+    const y = h - ((Math.min(v, top) - bottom) / (top - bottom)) * h;
     d += `${drawing ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
     drawing = true;
   }
   return d;
 }
 
+// The range a chart needs to show every value: from zero (or the lowest value,
+// if any are negative) up to a little above the highest.
+export function chartRange(...serieses) {
+  const values = serieses.flatMap((series) => Object.values(series));
+  const bottom = Math.min(0, ...values);
+  const top = Math.max(...values, 1e-9);
+  return { bottom, top: top + (top - bottom) * 0.08 };
+}
+
 // A country's line against the world's, with the chosen year marked.
 // Clicking the chart jumps to that year.
 export function miniChart({ country, world, years, year, label, onPickYear }) {
-  const top = Math.max(...Object.values(country), ...Object.values(world), 1e-9) * 1.08;
+  const { bottom, top } = chartRange(country, world);
   const svg = el('svg', {
     viewBox: `0 0 ${W} ${H}`,
     preserveAspectRatio: 'none',
@@ -45,10 +56,13 @@ export function miniChart({ country, world, years, year, label, onPickYear }) {
     'aria-label': label,
   });
   const x = ((year - years[0]) / (years[1] - years[0])) * W;
+  // A zero line, when some values fall below it.
+  const zeroY = H - (-bottom / (top - bottom)) * H;
   svg.append(
     el('line', { x1: x, x2: x, y1: 0, y2: H, class: 'mini-now' }),
-    el('path', { d: linePath(world, years, top, W, H), class: 'mini-world' }),
-    el('path', { d: linePath(country, years, top, W, H), class: 'mini-country' }),
+    bottom < 0 ? el('line', { x1: 0, x2: W, y1: zeroY, y2: zeroY, class: 'mini-zero' }) : '',
+    el('path', { d: linePath(world, years, top, W, H, bottom), class: 'mini-world' }),
+    el('path', { d: linePath(country, years, top, W, H, bottom), class: 'mini-country' }),
   );
   svg.addEventListener('click', (e) => {
     const box = svg.getBoundingClientRect();
@@ -60,8 +74,8 @@ export function miniChart({ country, world, years, year, label, onPickYear }) {
 
 // Fill the timeline's background chart with the world trend for the chosen layer.
 export function drawSparkline(svg, world, years) {
-  const top = Math.max(...Object.values(world), 1e-9) * 1.05;
-  const line = linePath(world, years, top, 1000, 40);
+  const { bottom, top } = chartRange(world);
+  const line = linePath(world, years, top, 1000, 40, bottom);
   // The filled area: each unbroken stretch of line, closed down to the baseline.
   const area = line
     .split('M')
